@@ -577,7 +577,7 @@ class XInput:
 # M1–M4 no PC: a macro aperta L1 e R1 juntos por um tempo que identifica a M (M1 = 30 ms … M4 = 120 ms); o app mede
 # quanto durou e manda a tecla na hora em que o sinal acaba. Testado: o controle não toca L3/R3 em macro; − e + vira
 # o botão Guia e abre o Big Picture do Steam. Com o controle virtual, o jogo nunca vê esse sinal.
-PC_MS = {"M3": 40, "M4": 140, "M1": 240, "M2": 340}  # 100 ms entre elas; a traseira mais usada é a mais rápida
+PC_MS = {"M3": 40, "M4": 110, "M1": 180, "M2": 250}  # 70 ms entre elas (o dongle varia ±26 ms); traseiras primeiro
 PC_LAG = 0.033  # medido: o sinal chega ao PC 10–56 ms mais longo do que foi gravado (dongle)
 PC_BASE = [5, 6]  # L1 e R1
 
@@ -708,7 +708,7 @@ class PcActions:
 
     def __init__(self):
         self.settings = QSettings("Controle", "G2ProV2")
-        self.on_since, self.saved, self.prev = None, {}, set()
+        self.on_since, self.saved, self.prev, self.live, self.done = None, {}, set(), [], False
 
     def get(self, name):
         return self.settings.value(f"pc/{name}/kind", "none"), self.settings.value(f"pc/{name}/value", "")
@@ -725,12 +725,23 @@ class PcActions:
         hit, together = set(PC_BASE) <= down, not set(PC_BASE) & self.prev  # nenhum dos dois estava apertado antes
         self.prev = down
         if hit and self.on_since is None and together:
-            self.on_since = now
-        elif not hit and self.on_since is not None:
-            held, self.on_since = now - self.on_since - PC_LAG, None
-            name = min(PC_MS, key=lambda m: abs(PC_MS[m] / 1000 - held))  # a M de duração mais perto
-            if held <= self.LONGEST:
-                self.fire(name)
+            self.on_since, self.done = now, False
+            # só as M com ação no PC disputam o sinal (lido uma vez por aperto, não a cada 2 ms)
+            self.live = sorted((m for m in PC_MS if self.get(m)[0] != "none"), key=PC_MS.get)
+        elif self.on_since is not None and not self.done and self.live:
+            held = (now - self.on_since - PC_LAG) * 1000
+            if not hit:
+                if held <= self.LONGEST * 1000:
+                    self.fire(min(self.live, key=lambda m: abs(PC_MS[m] - held)))  # a M de duração mais perto
+            else:
+                # já passou do tempo de todas as mais curtas: só pode ser a mais longa, dispara sem esperar o fim
+                last = self.live[-1]
+                floor = (PC_MS[self.live[-2]] + PC_MS[last]) / 2 if len(self.live) > 1 else 0
+                if held > floor:
+                    self.done = True
+                    self.fire(last)
+        if not hit:
+            self.on_since = None
 
     def watch(self, pad):
         """Lê o controle a cada 2 ms numa thread: o temporizador do Qt no Windows só dispara a cada ~15 ms."""
@@ -3392,15 +3403,21 @@ def selftest():
     assert (c["left"]["deadzone"], c["right"]["deadzone"], c["left"]["max"], c["right"]["max"]) == (17, 5, 94, 96)
     assert shortcut_vks("Ctrl+Shift+S") == [0x11, 0x10, 0x53] and shortcut_vks("F5") == [0x74]
     assert shortcut_vks("Alt+Left") == [0x12, 0x25] and shortcut_vks("") is None
-    # duração medida no dongle: gravado + 10…56 ms. M3 (40) chega 50–96 ms, M4 (140) chega 150–196 ms
+    # duração medida no dongle: gravado + 6…58 ms. M3 (40 ms) chega 46–98 ms; M4 (110 ms) chega 116–168 ms
     fired, pc = [], PcActions()
     pc.fire = fired.append
+    conf = {"M3": "shortcut", "M4": "shortcut"}
+    pc.get = lambda m: (conf.get(m, "none"), "F1")
     on, off, l1 = {"down": {5, 6}}, {"down": set()}, {"down": {5}}
-    for t0, ms in ((0, 50), (1, 96), (2, 150), (3, 196), (4, 600)):
+    for t0, ms in ((0, 46), (1, 98)):  # M3: decide na soltura
         pc.tick(on, t0); pc.tick(off, t0 + ms / 1000)
-    pc.tick(l1, 5.0); pc.tick(on, 5.01); pc.tick(off, 5.06)  # dedo: L1 antes do R1 não é traseira
-    assert fired == ["M3", "M3", "M4", "M4"], fired
-    assert pc_steps("M4") == [{"ms": 140, "keys": [5, 6]}]
+    pc.tick(on, 2.0); pc.tick(on, 2.05); pc.tick(on, 2.11); pc.tick(on, 2.13); pc.tick(off, 2.16)  # M4: dispara em ~108 ms
+    pc.tick(l1, 3.0); pc.tick(on, 3.01); pc.tick(off, 3.06)  # dedo: L1 antes do R1 não é traseira
+    assert fired == ["M3", "M3", "M4"], fired
+    conf = {"M4": "shortcut"}
+    pc.tick(on, 4.0); pc.tick(on, 4.035)  # só a M4 configurada: dispara já no começo
+    assert fired[-1] == "M4" and len(fired) == 4, fired
+    assert pc_steps("M4") == [{"ms": 110, "keys": [5, 6]}]
     steps, bad = sequence_steps('Ctrl+C, 100 ms, espera 50 ms, "gg", clique direito, Ctrl+V, F13, ???')
     assert [k for k, _ in sequence_steps("wait 50 ms, right click, Ctrl+V")[0]] == ["wait", "click", "keys"]
     assert sequence_steps('Ctrl+A, "ok, M3", Enter')[0] == [("keys", "Ctrl+A"), ("text", "ok, M3"), ("keys", "Enter")]
