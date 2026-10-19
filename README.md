@@ -9,7 +9,7 @@ lighting, macros, and rear buttons that become PC keys. Unofficial.
 
 ## Download and run
 
-1. Download **`G2ProV2.exe`** from the [latest release](../../releases/latest).
+1. Download **[G2ProV2.exe](https://github.com/Kozato01/Machenike-G2-Pro-V2-PC/raw/main/G2ProV2.exe)**.
 2. Open it. No installation needed.
 3. Turn on the controller (USB cable, 2.4G dongle or Bluetooth). The sheet fills in by itself.
 
