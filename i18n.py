@@ -240,6 +240,7 @@ EN = {
     "a tecla {0}": "the key {0}",
     "o texto “{0}”": "the text “{0}”",
     "a sequência": "the sequence",
+    "Aplicado às {0}: a traseira manda {1}.": "Applied at {0}: the rear button sends {1}.",
     "digita “{0}”": "types “{0}”",
     "− e + por {0} ms": "− and + for {0} ms",
     "Não entendi: {0}. Use atalhos (Ctrl+C), esperas (100 ms), textos entre aspas (\"gg\") e clique, clique direito "

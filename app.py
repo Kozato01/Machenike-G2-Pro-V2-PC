@@ -708,12 +708,14 @@ class PcActions:
 
     def __init__(self):
         self.settings = QSettings("Controle", "G2ProV2")
-        self.on_since = None
+        self.on_since, self.saved = None, {}
 
     def get(self, name):
         return self.settings.value(f"pc/{name}/kind", "none"), self.settings.value(f"pc/{name}/value", "")
 
     def put(self, name, kind, value):
+        if (kind, value) != self.get(name):
+            self.saved[name] = time.strftime("%H:%M")  # a célula mostra a confirmação
         self.settings.setValue(f"pc/{name}/kind", kind)
         self.settings.setValue(f"pc/{name}/value", value)
 
@@ -2707,7 +2709,7 @@ class MacroCell(SetupCell):
         self.pc_key.setToolTip(tr("Clique e aperte o atalho (ex.: Ctrl+Shift+S)"))
         self.pc_text.setPlaceholderText(tr("Texto que o app digita"))
         self.pc_special = ChoiceField([(tr("F{0}").format(n), tr("F{0}").format(n)) for n in range(13, 25)], 112)
-        self.pc_special.picked.connect(lambda v: (PC.put(self.pc_name, "special", v), self.refresh()))
+        self.pc_special.picked.connect(lambda v: (PC.put(self.pc_name, "special", v), self.flash(), self.refresh()))
         self.special_row = QWidget()
         sr = QHBoxLayout(self.special_row)
         sr.setContentsMargins(0, 0, 0, 0)
@@ -2738,8 +2740,9 @@ class MacroCell(SetupCell):
 
     def _pc_save(self, kind):
         value = self.pc_key.keySequence().toString() if kind == "shortcut" else self.pc_text.text()
-        if PC.get(self.pc_name)[0] == kind:
+        if PC.get(self.pc_name)[0] == kind and value != PC.get(self.pc_name)[1]:
             PC.put(self.pc_name, kind, value)
+            self.flash()  # pulso verde: a mudança já vale
         self.refresh()
 
     def _pc_refresh(self):
@@ -2797,6 +2800,9 @@ class MacroCell(SetupCell):
         else:
             text, color = (tr("Gravando na traseira… Depois é só apertar: o app troca o sinal dela por {0}.").format(what)), C["orange"]
         self.pc_note.setText(text, color)
+        stamps = [t for t in (PC.saved.get(self.pc_name), self.store.saved_at.get("macros")) if t]
+        if ready and what and not bad and stamps and "macros" not in self.store.problems:
+            self.note.say("check", C["green"], tr("Aplicado às {0}: a traseira manda {1}.").format(max(stamps), what))
         self.pc_note.show()
 
     def slot(self, src=None):
