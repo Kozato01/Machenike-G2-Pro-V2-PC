@@ -43,11 +43,20 @@ Em **Botões › Trás**, cada macro (M1–M4) pode imitar teclas do controle ou
 - **Texto:** digita um texto.
 - **Sequência:** uma pequena macro de PC, por exemplo `Ctrl+C, 100 ms, Ctrl+V, "gg", Enter, clique`.
 
-Clique em **Aplicar** e aperte a traseira. O app precisa estar aberto para isso, mas pode ficar minimizado.
+Mudanças em M1–M4 são gravadas no controle sozinhas (sem **Aplicar**). Depois é só apertar a traseira. O app
+precisa estar aberto para isso, mas pode ficar minimizado.
 
-**Controle virtual (opcional):** a traseira sinaliza com um toque rápido de L3 + R3, que o jogo também vê. Ligue o
-**Virtual** na barra de cima e o jogo passa a receber um controle Xbox virtual limpo, com vibração, enquanto as
-traseiras só mandam as teclas. Isso precisa de dois drivers gratuitos do Windows, da Nefarius (ViGEmBus e
+**Usar F13–F24 num jogo:** abra as configurações de controles do jogo, clique na ação que você quer e aperte a
+traseira quando o jogo pedir a tecla. Ele grava F13 (ou a que você escolheu), e nenhuma tecla do seu teclado fica
+ocupada. Vale também para o falar do Discord, atalhos do OBS e AutoHotkey.
+
+**Como a traseira chega ao PC:** o controle não sabe mandar tecla de teclado, então a traseira manda − e + juntos
+por um tempo certo (M1 = 30 ms … M4 = 120 ms). O app mede e manda a tecla no instante em que o sinal acaba. Apertar
+− e + com o dedo não dispara nada, porque o dedo segura mais tempo.
+
+**Controle virtual (recomendado com as traseiras):** sem ele, o jogo e o Steam também recebem esse − e + rápido.
+Ligue o **Virtual** na barra de cima e o jogo passa a receber um controle Xbox virtual limpo, com vibração, enquanto
+as traseiras só mandam as teclas. Isso precisa de dois drivers gratuitos do Windows, da Nefarius (ViGEmBus e
 HidHide). O app traz os instaladores: na primeira vez que você liga o **Virtual**, ele oferece instalar, e depois é
 só reiniciar o PC uma vez.
 
@@ -64,6 +73,10 @@ faz restauração de fábrica nem atualização de firmware; para isso, use o ap
 **Por que as traseiras não mandam teclas sem o app?**
 O firmware do controle só aceita teclas de controle nas macros, e ele não se apresenta ao Windows como teclado. É o
 app que transforma o sinal da traseira em tecla.
+
+**O app deixa os botões mais lentos?**
+Com o **Virtual** ligado, cada botão passa pelo app, que repassa em cerca de 2 ms, em média. As teclas das
+traseiras chegam de 30 a 120 ms depois do aperto, conforme a traseira (a M1 é a mais rápida).
 
 **Ainda posso usar o KeyLinker?**
 Sim. Só não deixe os dois conectados ao mesmo tempo.

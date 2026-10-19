@@ -42,11 +42,20 @@ In **Buttons › Back**, each macro (M1–M4) can mimic controller buttons or be
 - **Text:** types a text.
 - **Sequence:** a small PC macro, for example `Ctrl+C, 100 ms, Ctrl+V, "gg", Enter, click`.
 
-Click **Apply** and press the rear button. The app has to be open for this, but it can be minimized.
+Changes to M1–M4 are saved to the controller by themselves (no **Apply** needed). Then just press the rear
+button. The app has to be open for this, but it can be minimized.
 
-**Virtual controller (optional):** the rear button signals a quick tap of L3 + R3, which the game also sees. Turn on
-**Virtual** in the top bar and the game gets a clean virtual Xbox controller instead, with vibration, while the rear
-buttons only send their keys. It needs two free Windows drivers by Nefarius (ViGEmBus and HidHide). The app
+**Using F13–F24 in a game:** open the game's control settings, click the action you want, and press the rear button
+when the game asks for a key. It records F13 (or whichever you picked), and no key on your keyboard is used up. The
+same works for Discord push-to-talk, OBS hotkeys and AutoHotkey.
+
+**How the rear button reaches the PC:** the controller can't send keyboard keys, so the rear button sends − and +
+together for a set time (M1 = 30 ms … M4 = 120 ms). The app measures it and sends the key the moment the signal
+ends. Pressing − and + yourself does nothing, because a finger holds them longer.
+
+**Virtual controller (recommended with rear keys):** without it, the game and Steam also get that quick − and +.
+Turn on **Virtual** in the top bar and the game gets a clean virtual Xbox controller instead, with vibration, while
+the rear buttons only send their keys. It needs two free Windows drivers by Nefarius (ViGEmBus and HidHide). The app
 includes their installers: the first time you turn on **Virtual**, it offers to install them, then you restart the
 PC once.
 
@@ -63,6 +72,10 @@ does not do factory resets or firmware updates; use the official app for those.
 **Why can't the rear buttons send keys without the app?**
 The controller's firmware only accepts controller buttons in macros, and it doesn't present itself to Windows as a
 keyboard. The app is what turns the rear button's signal into a key.
+
+**Does the app add input lag?**
+With **Virtual** on, every button goes through the app, which re-sends it in about 2 ms on average. Rear-button keys
+arrive 30–120 ms after the press, depending on the button (M1 is the fastest).
 
 **Can I still use the KeyLinker app?**
 Yes. Just don't keep both connected at the same time.

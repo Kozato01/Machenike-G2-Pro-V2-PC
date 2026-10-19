@@ -574,16 +574,16 @@ class XInput:
 
 
 # ---------------------------------------------------------------- ações no PC (traseiras → teclado)
-# M1–M4 no PC: a macro toca N toques curtos de L3+R3 (M1 = 1 ... M4 = 4); o app conta e manda a tecla.
-# Direcional não serve (lados opostos viram um lado só) e − com + abre o Big Picture do Steam.
+# M1–M4 no PC: a macro aperta − e + juntos por um tempo que identifica a M (M1 = 30 ms … M4 = 120 ms); o app mede
+# quanto durou e manda a tecla na hora em que o sinal acaba. O controle não toca L3/R3 em macro (testado) e o
+# direcional junta lados opostos; − e + sim. Com o controle virtual, o jogo e o Steam nunca veem esse sinal.
 PC_PULSES = {"M1": 1, "M2": 2, "M3": 3, "M4": 4}
-PC_BASE = [11, 12]  # L3 e R3
-PC_ON_MS = PC_OFF_MS = 50
+PC_BASE = [93, 94]  # − e +
+PC_STEP_MS = 30
 
 
 def pc_steps(name):
-    on, off = {"ms": PC_ON_MS, "keys": list(PC_BASE)}, {"ms": PC_OFF_MS, "keys": []}
-    return ([on, off] * PC_PULSES[name])[:-1]  # termina num toque: passo final vazio o controle descarta
+    return [{"ms": PC_STEP_MS * PC_PULSES[name], "keys": list(PC_BASE)}]
 FACTORY_MACROS = {  # como vieram (lidas em 2026-10-19), com os 4 bytes finais de fábrica
     "M3": {"loop_ms": 0, "loop": False, "steps": [{"ms": 350, "keys": [3]}], "tail": [136, 0, 0, 15]},
     "M4": {"loop_ms": 0, "loop": False, "steps": [{"ms": 315, "keys": [4]}], "tail": [136, 0, 0, 33]}}
@@ -702,14 +702,13 @@ def run_sequence(text):
 
 
 class PcActions:
-    """O que cada M faz no PC (salvo neste PC). Conta toques curtos de L3+R3: um dedo apertando L3+R3 dura mais que
-    o limite e não dispara nada."""
-    SHORT, GAP = 0.12, 0.2  # toque da macro < 120 ms; 200 ms sem toque encerra a contagem
+    """O que cada M faz no PC (salvo neste PC). Mede quanto durou o − e + juntos: 30/60/90/120 ms = M1…M4. Um dedo
+    segura mais que isso e não dispara nada."""
+    LONGEST = 0.15  # acima disso é gente apertando, não a macro
 
     def __init__(self):
         self.settings = QSettings("Controle", "G2ProV2")
-        self.on_since = self.last_off = None
-        self.count = 0
+        self.on_since = None
 
     def get(self, name):
         return self.settings.value(f"pc/{name}/kind", "none"), self.settings.value(f"pc/{name}/value", "")
@@ -724,14 +723,19 @@ class PcActions:
         if hit and self.on_since is None:
             self.on_since = now
         elif not hit and self.on_since is not None:
-            short = now - self.on_since < self.SHORT
-            self.count, self.on_since = (self.count + 1 if short else 0), None
-            self.last_off = now
-        elif not hit and self.count and now - self.last_off > self.GAP:
-            name = next((n for n, c in PC_PULSES.items() if c == self.count), None)
-            self.count = 0
-            if name:
+            held, self.on_since = now - self.on_since, None
+            n = round(held * 1000 / PC_STEP_MS)  # o dongle atrasa alguns ms: arredonda para a M mais perto
+            name = next((m for m, c in PC_PULSES.items() if c == n), None)
+            if name and held <= self.LONGEST:
                 self.fire(name)
+
+    def watch(self, pad):
+        """Lê o controle a cada 2 ms numa thread: o temporizador do Qt no Windows só dispara a cada ~15 ms."""
+        def loop():
+            while True:
+                self.tick(pad.read())
+                time.sleep(0.002)
+        threading.Thread(target=loop, daemon=True).start()
 
     def fire(self, name):
         kind, value = self.get(name)
@@ -749,7 +753,7 @@ VIRTUAL = None  # VirtualPad, criado pela janela
 
 # ---------------------------------------------------------------- controle virtual (ViGEmBus + HidHide)
 HIDHIDE = Path(r"C:\Program Files\Nefarius Software Solutions\HidHide\x64\HidHideCLI.exe")
-L3R3 = 0x0040 | 0x0080  # bits XInput de L3 e R3: o sinal das M; o jogo nunca vê os dois juntos
+SIGNAL = 0x0010 | 0x0020  # bits XInput de + (Start) e − (Back): o sinal das M; o jogo nunca vê os dois juntos
 
 
 def hidhide(*args):
@@ -765,7 +769,7 @@ def hidhide(*args):
 
 
 def strip_signal(buttons):
-    return buttons & ~L3R3 if buttons & L3R3 == L3R3 else buttons
+    return buttons & ~SIGNAL if buttons & SIGNAL == SIGNAL else buttons
 
 
 DRIVERS = {"ViGEmBus": "ViGEmBusSetup_x64.msi", "HidHide": "HidHide_1.5.230_x64.exe"}  # em assets/drivers
@@ -843,6 +847,10 @@ class VirtualPad:
         return True
 
     def _loop(self):
+        try:  # repasse dos botões na frente de tudo: desenhar a tela e o Bluetooth esperam
+            ctypes.windll.kernel32.SetThreadPriority(ctypes.windll.kernel32.GetCurrentThread(), 15)
+        except (AttributeError, OSError):
+            pass
         last = None
         while self.running:
             st = _State()
@@ -852,7 +860,7 @@ class VirtualPad:
                 r.bLeftTrigger, r.bRightTrigger = g.bLeftTrigger, g.bRightTrigger
                 r.sThumbLX, r.sThumbLY, r.sThumbRX, r.sThumbRY = g.sThumbLX, g.sThumbLY, g.sThumbRX, g.sThumbRY
                 self.vpad.update()
-            time.sleep(0.002)
+            time.sleep(0.001)
 
     def stop(self):
         self.running = False
@@ -2750,9 +2758,13 @@ class MacroCell(SetupCell):
             self.pc_note.hide()
             return
         n = PC_PULSES[self.pc_name]
-        combo = tr("{0} toque{1} rápido{2} de L3 e R3").format(n, 's' if n > 1 else '', 's' if n > 1 else '')
+        combo = tr("− e + por {0} ms").format(PC_STEP_MS * n)
         steps = [(st.get("keys"), st.get("ms")) for st in ((self.slot(self.store.device) or {}).get("steps") or [])]
         ready = [(st["keys"], st["ms"]) for st in pc_steps(self.pc_name)] == [(k, ms) for k, ms in steps]
+        draft = [(st.get("keys"), st.get("ms")) for st in ((self.slot() or {}).get("steps") or [])]
+        if not ready and draft != [(st["keys"], st["ms"]) for st in pc_steps(self.pc_name)]:
+            self._put(pc_steps(self.pc_name))  # o sinal no controle está velho: deixa pendente para o Aplicar
+            return
         unknown = sequence_steps(value)[1] if kind == "sequence" else []
         bad = (kind == "shortcut" and value and not shortcut_vks(value)) or unknown
         what = ({"shortcut": tr("o atalho {0}").format(value), "special": tr("a tecla {0}").format(value), "text": tr("o texto “{0}”").format(value),
@@ -2777,9 +2789,9 @@ class MacroCell(SetupCell):
             text, color = ((tr("Pronto. No jogo, ligue {0} ao comando que quiser (nenhum teclado tem essa tecla). ").format(value)
                             if kind == "special" else tr("Pronto. ")) + tr("Funciona com o app aberto (pode minimizar). ") + (
                 tr("Com o controle virtual ligado, o jogo não vê o sinal da traseira.") if hidden else
-                tr("Ligue o controle virtual (barra de cima) para o jogo não ver o sinal da traseira."))), C["pencil"]
+                tr("Ligue o Virtual (barra de cima): sem ele, o jogo e o Steam também recebem o − e + da traseira."))), C["pencil"]
         else:
-            text, color = (tr("Clique em Aplicar para gravar na traseira. Depois é só apertar a traseira: o app troca o sinal dela por {0}.").format(what)), C["orange"]
+            text, color = (tr("Gravando na traseira… Depois é só apertar: o app troca o sinal dela por {0}.").format(what)), C["orange"]
         self.pc_note.setText(text, color)
         self.pc_note.show()
 
@@ -3221,7 +3233,8 @@ class Main(QMainWindow):
         link.loaded.connect(lambda cfg: self.f_msg.setText(""))
         self.timer = QTimer(self)
         self.timer.setInterval(33)
-        self.timer.timeout.connect(lambda: self.stack.currentWidget().live(self.pad.read()))
+        self.timer.timeout.connect(lambda: None if self.isMinimized() else  # minimizado (jogando): nada a desenhar
+                                   self.stack.currentWidget().live(self.pad.read()))
         self.timer.start()
         global VIRTUAL
         VIRTUAL = VirtualPad(self.pad)
@@ -3229,10 +3242,12 @@ class Main(QMainWindow):
             VIRTUAL.start()
         else:
             hidhide("--cloak-off")  # garante o real visível se o app caiu com o modo ligado
-        self.pc_timer = QTimer(self)  # traseiras → teclado: 8 ms para não perder o toque de 80 ms
-        self.pc_timer.setInterval(8)
-        self.pc_timer.timeout.connect(lambda: PC.tick(self.pad.read()))
-        self.pc_timer.start()
+        PC.watch(self.pad)  # traseiras → teclado
+        self.macro_timer = QTimer(self)  # M1–M4 gravam sozinhas: espera meio segundo sem mudança e grava uma vez
+        self.macro_timer.setSingleShot(True)
+        self.macro_timer.setInterval(600)
+        self.macro_timer.timeout.connect(self._apply_macros)
+        store.changed.connect(lambda: "macros" in store.pending() and self.macro_timer.start())
         self._status("search", tr("Procurando o controle…"))
         self.refresh()
 
@@ -3242,6 +3257,13 @@ class Main(QMainWindow):
         self.link.set_mode(self.pages[i].mode)
         if view:  # ex.: "Macros" da Ficha abre Botões na vista das macros
             self.pages[i].set_view(view)
+
+    def _apply_macros(self):
+        if self.state != "ok":  # ocupado ou desconectado: tenta de novo daqui a pouco
+            self.macro_timer.start()
+            return
+        if "macros" in self.store.pending():
+            self.link.apply([("macros", copy.deepcopy(self.store.draft["macros"]))])
 
     def _set_lang(self, lang):
         """Troca a língua reabrindo o app: Bluetooth e controle virtual recomeçam limpos na língua nova."""
@@ -3330,6 +3352,11 @@ def make_app(argv):
         ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("Controle.G2ProV2")
     except (AttributeError, OSError):
         pass
+    try:  # relógio do Windows a 1 ms: sem isso, esperas curtas viram ~15 ms e os botões atrasam
+        ctypes.windll.winmm.timeBeginPeriod(1)
+    except (AttributeError, OSError):
+        pass
+    sys.setswitchinterval(0.001)  # threads trocam a cada 1 ms (padrão 5 ms): o repasse não fica na fila
     app = QApplication(argv)
     app.setStyle("Fusion")
     QFontDatabase.addApplicationFont(str(ROOT / "assets" / "fonts" / "Archivo-Variable.ttf"))
@@ -3358,23 +3385,22 @@ def selftest():
     assert (c["left"]["deadzone"], c["right"]["deadzone"], c["left"]["max"], c["right"]["max"]) == (17, 5, 94, 96)
     assert shortcut_vks("Ctrl+Shift+S") == [0x11, 0x10, 0x53] and shortcut_vks("F5") == [0x74]
     assert shortcut_vks("Alt+Left") == [0x12, 0x25] and shortcut_vks("") is None
-    # contagem: 3 toques de 50 ms = M3; L3+R3 segurado pelo dedo (300 ms) não conta
+    # duração: − e + por ~90 ms (com atraso do dongle) = M3; segurado pelo dedo (300 ms) não conta
     fired, pc = [], PcActions()
     pc.fire = fired.append
-    on, off, t = {"down": {11, 12}}, {"down": set()}, 0.0
-    for _ in range(3):
-        pc.tick(on, t); pc.tick(off, t + 0.05); t += 0.1
-    pc.tick(off, t + 0.3)
-    pc.tick(on, t + 1); pc.tick(off, t + 1.3); pc.tick(off, t + 1.6)
-    assert fired == ["M3"], fired
-    assert [st["keys"] for st in pc_steps("M2")] == [[11, 12], [], [11, 12]]
+    on, off = {"down": {93, 94}}, {"down": set()}
+    pc.tick(on, 0.0); pc.tick(off, 0.097)
+    pc.tick(on, 1.0); pc.tick(off, 1.3)
+    pc.tick(on, 2.0); pc.tick(off, 2.034)
+    assert fired == ["M3", "M1"], fired
+    assert pc_steps("M4") == [{"ms": 120, "keys": [93, 94]}]
     steps, bad = sequence_steps('Ctrl+C, 100 ms, espera 50 ms, "gg", clique direito, Ctrl+V, F13, ???')
     assert [k for k, _ in sequence_steps("wait 50 ms, right click, Ctrl+V")[0]] == ["wait", "click", "keys"]
     assert sequence_steps('Ctrl+A, "ok, M3", Enter')[0] == [("keys", "Ctrl+A"), ("text", "ok, M3"), ("keys", "Enter")]
     assert [k for k, _ in steps] == ["keys", "wait", "wait", "text", "click", "keys", "keys"] and bad == ["???"]
     assert shortcut_vks("F13") == [0x7C]
     assert all((ROOT / "assets" / "drivers" / f).exists() for f in DRIVERS.values())  # instaladores no pacote
-    assert strip_signal(0x0040 | 0x0080 | 0x1000) == 0x1000 and strip_signal(0x0040) == 0x0040  # L3 sozinho passa
+    assert strip_signal(0x0010 | 0x0020 | 0x1000) == 0x1000 and strip_signal(0x0020) == 0x0020  # − sozinho passa
     for pt, en in i18n.EN.items():  # tradução nunca pede um marcador {n} que a frase original não tem
         assert set(re.findall(r"\{(\d+)", en)) <= set(re.findall(r"\{(\d+)", pt)), pt
     print("selftest ok")
