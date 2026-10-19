@@ -829,7 +829,11 @@ class VirtualPad:
                                  stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=30,
                                  creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0)).stdout.split()
             hide = [arg for i in ids for arg in ("--dev-hide", i)]
-            if hidhide("--app-reg", sys.executable, *hide, "--cloak-on") is None:
+            # o virtual tem o mesmo 045E:028E: se um dia entrou na lista (salva pelo HidHide), o jogo não vê nada.
+            # Começa do zero e esconde só o que estava ligado antes do virtual existir.
+            old = re.findall(r'--dev-hide "([^"]+)"', hidhide("--dev-list") or "")
+            unhide = [arg for i in old for arg in ("--dev-unhide", i)]
+            if hidhide(*unhide, "--app-reg", sys.executable, *hide, "--cloak-on") is None:
                 raise RuntimeError(tr("o HidHide não respondeu"))
             self.pad.pinned = True  # daqui em diante só lê o slot do controle real
             self.vpad = vg.VX360Gamepad()
