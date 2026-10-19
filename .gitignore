@@ -5,3 +5,6 @@ dist/
 
 # material de terceiros da engenharia reversa (APK e código descompilado)
 re/
+
+# o executável é publicado nas Releases do GitHub
+G2ProV2.exe
