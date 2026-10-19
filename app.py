@@ -2717,13 +2717,22 @@ class MacroCell(SetupCell):
     def _pc_ui(self, name):
         """Ação no PC: a traseira aperta uma combinação rara e o app (aberto) troca por teclado."""
         self.pc_name = name
-        row = QHBoxLayout()
-        row.addWidget(label(tr("No PC"), F(14), C["chalk"]))
+        # a escolha principal fica no topo: a traseira faz algo no controle ou no PC
+        self.mode = Segmented([(tr("No controle"), "pad"), (tr("No PC"), "pc")])
+        self.mode.picked.connect(self._mode)
+        top = QHBoxLayout()
+        top.addWidget(self.mode)
+        top.addStretch(1)
+        self.body.insertLayout(0, top)
+        self.pc_row = QWidget()
+        row = QHBoxLayout(self.pc_row)
+        row.setContentsMargins(0, 0, 0, 0)
+        row.addWidget(label(tr("Ação"), F(14), C["chalk"]))
         row.addStretch(1)
-        self.pc = ChoiceField([(tr("Nada"), "none"), (tr("Atalho"), "shortcut"), (tr("Tecla especial"), "special"),
+        self.pc = ChoiceField([(tr("Atalho"), "shortcut"), (tr("Tecla especial"), "special"),
                                (tr("Texto"), "text"), (tr("Sequência"), "sequence")], 150)
         row.addWidget(self.pc)
-        self.body.addLayout(row)
+        self.body.addWidget(self.pc_row)
         self.pc_key, self.pc_text = QKeySequenceEdit(), QLineEdit(objectName="pc")
         self.pc_key.setMaximumSequenceLength(1)
         self.pc_key.findChild(QLineEdit).setPlaceholderText(tr("Clique e aperte o atalho"))
@@ -2759,6 +2768,29 @@ class MacroCell(SetupCell):
             self._put(pc_steps(self.pc_name))
         self.refresh()
 
+    def _mode(self, mode):
+        """Troca entre controle e PC. A ação de PC fica guardada para quando voltar; ao ir para o controle, a traseira
+        volta ao de fábrica (M1/M2: vazia), pendente até o Aplicar."""
+        st = PC.settings
+        kind, value = PC.get(self.pc_name)
+        if mode == "pc" and kind == "none":
+            kind, value = st.value(f"pc/{self.pc_name}/prev_kind", "shortcut"), st.value(f"pc/{self.pc_name}/prev_value", "")
+            PC.put(self.pc_name, kind, value)
+            self.pc_key.setKeySequence(QKeySequence(value if kind == "shortcut" else ""))
+            self.pc_text.setText(value if kind in ("text", "sequence") else "")
+            self._put(pc_steps(self.pc_name))
+        elif mode == "pad" and kind != "none":
+            st.setValue(f"pc/{self.pc_name}/prev_kind", kind)
+            st.setValue(f"pc/{self.pc_name}/prev_value", value)
+            PC.put(self.pc_name, "none", "")
+            factory = FACTORY_MACROS.get(self.pc_name)
+            if factory:
+                self.store.set(("macros", "slots", self.pos), {"name": self.pc_name, "index":
+                               kl.MACRO_SLOTS.index(self.pc_name)} | copy.deepcopy(factory))
+            else:
+                self._put([])
+        self.refresh()
+
     def _pc_save(self, kind):
         value = self.pc_key.keySequence().toString() if kind == "shortcut" else self.pc_text.text()
         if PC.get(self.pc_name)[0] == kind and value != PC.get(self.pc_name)[1]:
@@ -2769,6 +2801,8 @@ class MacroCell(SetupCell):
     def _pc_refresh(self):
         kind, value = PC.get(self.pc_name)
         on = kind != "none"
+        self.mode.show_state("pc" if on else "pad", "pc" if on else "pad")
+        self.pc_row.setVisible(on)
         for w in [self.single_label, self.single, self.add_b, self.empty_b] + [x for r in self.rows for x in r[::2]]:
             w.setVisible(not on)
         for r in self.rows:
@@ -2931,7 +2965,13 @@ class MacroCell(SetupCell):
         self.single.show_state(one(dev), one(cur))
         self.single.setPlaceholderText(tr("Sequência") if cur.get("steps") else tr("Nenhuma"))
         pend = self.pending()
-        self.summary.setText(tr("Ao apertar: ") + macro_text(cur), C["orange"] if pend else C["ink"])
+        signal = [(st.get("keys"), st.get("ms")) for st in cur.get("steps") or []] in [
+            [(list(PC_BASE), ms)] for ms in PC_MS.values()]  # o sinal do PC sobrou na macro, sem ação no PC
+        self.summary.setText((tr("Ao apertar: nada (sobrou o sinal do PC). Escolha uma tecla ou Restaurar de fábrica.")
+                              if cur.get("name") in FACTORY_MACROS else
+                              tr("Ao apertar: nada (sobrou o sinal do PC). Escolha uma tecla ou Esvaziar."))
+                             if signal and getattr(self, "pc_name", None) else tr("Ao apertar: ") + macro_text(cur),
+                             C["orange"] if pend or signal else C["ink"])
         self.was.setText(tr("No controle: ") + macro_text(dev))
         self.was.setVisible(pend)
         steps, dsteps = cur.get("steps") or [], (dev or {}).get("steps") or []
