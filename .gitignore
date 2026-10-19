@@ -1,0 +1,7 @@
+# Python e build
+__pycache__/
+build/
+dist/
+
+# material de terceiros da engenharia reversa (APK e código descompilado)
+re/
