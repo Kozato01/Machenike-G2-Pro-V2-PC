@@ -574,16 +574,16 @@ class XInput:
 
 
 # ---------------------------------------------------------------- ações no PC (traseiras → teclado)
-# M1–M4 no PC: a macro aperta L1 e R1 juntos por um tempo que identifica a M (M1 = 30 ms … M4 = 120 ms); o app mede
-# quanto durou e manda a tecla na hora em que o sinal acaba. Testado: o controle não toca L3/R3 em macro; − e + vira
-# o botão Guia e abre o Big Picture do Steam. Com o controle virtual, o jogo nunca vê esse sinal.
-PC_MS = {"M3": 40, "M4": 110, "M1": 180, "M2": 250}  # 70 ms entre elas (o dongle varia ±26 ms); traseiras primeiro
-PC_LAG = 0.033  # medido: o sinal chega ao PC 10–56 ms mais longo do que foi gravado (dongle)
+# M1–M4 no PC: a macro aperta L1 e R1 juntos por 40 ms, mais uma marca que diz qual M é (M3: nenhuma, M4: X,
+# M1: A, M2: B). O app reconhece no instante em que o sinal aparece e manda a tecla na hora. Testado: o controle não
+# toca L3/R3 em macro; − e + vira o botão Guia (Big Picture do Steam). Com o Virtual, o jogo não vê nada disso.
 PC_BASE = [5, 6]  # L1 e R1
+PC_MARK = {"M3": [], "M4": [3], "M1": [1], "M2": [2]}  # X, A, B (o controle toca esses em macro: as de fábrica)
+PC_HOLD_MS = 40
 
 
 def pc_steps(name):
-    return [{"ms": PC_MS[name], "keys": list(PC_BASE)}]
+    return [{"ms": PC_HOLD_MS, "keys": PC_MARK[name] + PC_BASE}]  # na ordem da lista de teclas do controle
 FACTORY_MACROS = {  # como vieram (lidas em 2026-10-19), com os 4 bytes finais de fábrica
     "M3": {"loop_ms": 0, "loop": False, "steps": [{"ms": 350, "keys": [3]}], "tail": [136, 0, 0, 15]},
     "M4": {"loop_ms": 0, "loop": False, "steps": [{"ms": 315, "keys": [4]}], "tail": [136, 0, 0, 33]}}
@@ -702,13 +702,12 @@ def run_sequence(text):
 
 
 class PcActions:
-    """O que cada M faz no PC (salvo neste PC). Mede quanto durou o L1 e R1 juntos (PC_MS). Só conta se os dois
-    apareceram na mesma leitura: a macro aperta os dois no mesmo instante, um dedo sempre aperta um antes."""
-    LONGEST = 0.45  # acima disso é gente segurando, não a macro
+    """O que cada M faz no PC (salvo neste PC). Reconhece a M pela marca que vem junto do L1 e R1. Só conta se L1 e
+    R1 apareceram na mesma leitura: a macro aperta tudo no mesmo instante, um dedo sempre aperta um antes."""
 
     def __init__(self):
         self.settings = QSettings("Controle", "G2ProV2")
-        self.on_since, self.saved, self.prev, self.live, self.done = None, {}, set(), [], False
+        self.saved, self.prev = {}, set()
 
     def get(self, name):
         return self.settings.value(f"pc/{name}/kind", "none"), self.settings.value(f"pc/{name}/value", "")
@@ -724,24 +723,11 @@ class PcActions:
         down = pad["down"] if pad else set()
         hit, together = set(PC_BASE) <= down, not set(PC_BASE) & self.prev  # nenhum dos dois estava apertado antes
         self.prev = down
-        if hit and self.on_since is None and together:
-            self.on_since, self.done = now, False
-            # só as M com ação no PC disputam o sinal (lido uma vez por aperto, não a cada 2 ms)
-            self.live = sorted((m for m in PC_MS if self.get(m)[0] != "none"), key=PC_MS.get)
-        elif self.on_since is not None and not self.done and self.live:
-            held = (now - self.on_since - PC_LAG) * 1000
-            if not hit:
-                if held <= self.LONGEST * 1000:
-                    self.fire(min(self.live, key=lambda m: abs(PC_MS[m] - held)))  # a M de duração mais perto
-            else:
-                # já passou do tempo de todas as mais curtas: só pode ser a mais longa, dispara sem esperar o fim
-                last = self.live[-1]
-                floor = (PC_MS[self.live[-2]] + PC_MS[last]) / 2 if len(self.live) > 1 else 0
-                if held > floor:
-                    self.done = True
-                    self.fire(last)
-        if not hit:
-            self.on_since = None
+        if hit and together:
+            marks = down & {k for m in PC_MARK.values() for k in m}
+            name = next((m for m, mk in PC_MARK.items() if set(mk) == marks), None)
+            if name and self.get(name)[0] != "none":
+                self.fire(name)
 
     def watch(self, pad):
         """Lê o controle a cada 2 ms numa thread: o temporizador do Qt no Windows só dispara a cada ~15 ms."""
@@ -782,12 +768,18 @@ def hidhide(*args):
     return r.stdout
 
 
-def strip_signal(buttons, latched=False, prev=0):
-    """Tira o sinal das M: L1 e R1 aparecendo juntos na mesma leitura (a macro); um dedo aperta um antes e passa
-    normal. Do começo do sinal até os dois soltarem, nenhum passa (na soltura um sai antes e escaparia sozinho).
-    Devolve (botões para o jogo, ainda dentro do sinal?)."""
-    latched = (buttons & SIGNAL == SIGNAL and not prev & SIGNAL) or (latched and bool(buttons & SIGNAL))
-    return (buttons & ~SIGNAL if latched else buttons), latched
+MARK_BITS = 0x1000 | 0x2000 | 0x4000  # A, B, X: as marcas das M
+
+
+def strip_signal(buttons, mask=0, prev=0):
+    """Tira o sinal das M: L1 e R1 aparecendo juntos na mesma leitura (a macro), com a marca que veio junto; um dedo
+    aperta um antes e passa normal. Do começo do sinal até tudo soltar, nada disso passa (na soltura um botão sai
+    antes e escaparia sozinho). Devolve (botões para o jogo, bits ainda segurados)."""
+    if not mask and buttons & SIGNAL == SIGNAL and not prev & SIGNAL:
+        mask = SIGNAL | buttons & MARK_BITS
+    elif mask and not buttons & mask:
+        mask = 0
+    return buttons & ~mask, mask
 
 
 DRIVERS = {"ViGEmBus": "ViGEmBusSetup_x64.msi", "HidHide": "HidHide_1.5.230_x64.exe"}  # em assets/drivers
@@ -873,7 +865,7 @@ class VirtualPad:
             ctypes.windll.kernel32.SetThreadPriority(ctypes.windll.kernel32.GetCurrentThread(), 15)
         except (AttributeError, OSError):
             pass
-        last, latched, prev = None, False, 0
+        last, latched, prev = None, 0, 0
         while self.running:
             st = _State()
             if self.pad.dll.XInputGetState(self.pad.user, ctypes.byref(st)) == 0 and st.dwPacketNumber != last:
@@ -2711,7 +2703,7 @@ class MacroCell(SetupCell):
         self.body.addWidget(self.lock)
         self.pc = None
         name = (self.slot(store.device) or self.slot() or {}).get("name") if store.device else None
-        if name in PC_MS:
+        if name in PC_MARK:
             self._pc_ui(name)
 
     def _pc_ui(self, name):
@@ -2785,7 +2777,8 @@ class MacroCell(SetupCell):
         if kind == "none":
             self.pc_note.hide()
             return
-        combo = tr("L1 e R1 por {0} ms").format(PC_MS[self.pc_name])
+        combo = tr("{0} por {1} ms").format(tr(" e ").join(key_name(k) for k in pc_steps(self.pc_name)[0]["keys"]),
+                                            PC_HOLD_MS)
         steps = [(st.get("keys"), st.get("ms")) for st in ((self.slot(self.store.device) or {}).get("steps") or [])]
         ready = [(st["keys"], st["ms"]) for st in pc_steps(self.pc_name)] == [(k, ms) for k, ms in steps]
         draft = [(st.get("keys"), st.get("ms")) for st in ((self.slot() or {}).get("steps") or [])]
@@ -3403,21 +3396,14 @@ def selftest():
     assert (c["left"]["deadzone"], c["right"]["deadzone"], c["left"]["max"], c["right"]["max"]) == (17, 5, 94, 96)
     assert shortcut_vks("Ctrl+Shift+S") == [0x11, 0x10, 0x53] and shortcut_vks("F5") == [0x74]
     assert shortcut_vks("Alt+Left") == [0x12, 0x25] and shortcut_vks("") is None
-    # duração medida no dongle: gravado + 6…58 ms. M3 (40 ms) chega 46–98 ms; M4 (110 ms) chega 116–168 ms
+    # marca: L1+R1 = M3, +X = M4, +A = M1, +B = M2; dispara no aperto; dedo (L1 antes do R1) não conta
     fired, pc = [], PcActions()
     pc.fire = fired.append
-    conf = {"M3": "shortcut", "M4": "shortcut"}
-    pc.get = lambda m: (conf.get(m, "none"), "F1")
-    on, off, l1 = {"down": {5, 6}}, {"down": set()}, {"down": {5}}
-    for t0, ms in ((0, 46), (1, 98)):  # M3: decide na soltura
-        pc.tick(on, t0); pc.tick(off, t0 + ms / 1000)
-    pc.tick(on, 2.0); pc.tick(on, 2.05); pc.tick(on, 2.11); pc.tick(on, 2.13); pc.tick(off, 2.16)  # M4: dispara em ~108 ms
-    pc.tick(l1, 3.0); pc.tick(on, 3.01); pc.tick(off, 3.06)  # dedo: L1 antes do R1 não é traseira
-    assert fired == ["M3", "M3", "M4"], fired
-    conf = {"M4": "shortcut"}
-    pc.tick(on, 4.0); pc.tick(on, 4.035)  # só a M4 configurada: dispara já no começo
-    assert fired[-1] == "M4" and len(fired) == 4, fired
-    assert pc_steps("M4") == [{"ms": 110, "keys": [5, 6]}]
+    pc.get = lambda m: ("none" if m == "M2" else "shortcut", "F1")
+    for down in ({5, 6}, set(), {3, 5, 6}, {3, 5, 6}, set(), {1, 5, 6}, set(), {2, 5, 6}, set(), {5}, {5, 6}, set()):
+        pc.tick({"down": down})
+    assert fired == ["M3", "M4", "M1"], fired  # M2 sem ação no PC; segurar não repete; dedo não conta
+    assert pc_steps("M4") == [{"ms": 40, "keys": [3, 5, 6]}] and pc_steps("M3") == [{"ms": 40, "keys": [5, 6]}]
     steps, bad = sequence_steps('Ctrl+C, 100 ms, espera 50 ms, "gg", clique direito, Ctrl+V, F13, ???')
     assert [k for k, _ in sequence_steps("wait 50 ms, right click, Ctrl+V")[0]] == ["wait", "click", "keys"]
     assert sequence_steps('Ctrl+A, "ok, M3", Enter')[0] == [("keys", "Ctrl+A"), ("text", "ok, M3"), ("keys", "Enter")]
@@ -3425,11 +3411,12 @@ def selftest():
     assert shortcut_vks("F13") == [0x7C]
     assert all((ROOT / "assets" / "drivers" / f).exists() for f in DRIVERS.values())  # instaladores no pacote
     assert strip_signal(0x0100)[0] == 0x0100  # L1 sozinho (dedo) passa
-    out, lat = strip_signal(0x0300 | 0x1000)
-    assert out == 0x1000 and lat  # os dois na mesma leitura: sinal, não passa
-    assert strip_signal(0x0100, lat, 0x0300) == (0, True)  # soltura em degrau: o L1 que sobrou não escapa
-    assert strip_signal(0, True, 0x0100) == (0, False)
-    assert strip_signal(0x0300, False, 0x0100) == (0x0300, False)  # dedo: L1 depois R1 passa inteiro para o jogo
+    out, m = strip_signal(0x0300 | 0x4000 | 0x0001)  # M4: L1+R1+X, com o direcional apertado pelo jogador
+    assert out == 0x0001 and m == 0x4300
+    out, m = strip_signal(0x4100, m, 0x4301)  # soltura em degrau: o que sobrou não escapa
+    assert out == 0 and m
+    assert strip_signal(0, m, 0x4100) == (0, 0)
+    assert strip_signal(0x0300, 0, 0x0100) == (0x0300, 0)  # dedo: L1 depois R1 passa inteiro para o jogo
     for pt, en in i18n.EN.items():  # tradução nunca pede um marcador {n} que a frase original não tem
         assert set(re.findall(r"\{(\d+)", en)) <= set(re.findall(r"\{(\d+)", pt)), pt
     print("selftest ok")
