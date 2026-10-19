@@ -223,12 +223,6 @@ EN = {
     "Só leitura por enquanto: a gravação de macros é liberada depois do teste no controle.":
         "Read-only for now: saving macros is enabled after the test on the controller.",
     "No PC": "On PC",
-    "No controle": "On controller",
-    "Ação": "Action",
-    "Ao apertar: nada (sobrou o sinal do PC). Escolha uma tecla ou Restaurar de fábrica.":
-        "When pressed: nothing (the PC signal is left over). Pick a button or Factory restore.",
-    "Ao apertar: nada (sobrou o sinal do PC). Escolha uma tecla ou Esvaziar.":
-        "When pressed: nothing (the PC signal is left over). Pick a button or Clear.",
     "Nada": "Nothing",
     "Atalho": "Shortcut",
     "Tecla especial": "Special key",
