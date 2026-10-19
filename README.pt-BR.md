@@ -9,7 +9,7 @@ turbo, luz, macros e traseiras que viram teclas do PC. Não oficial.
 
 ## Baixar e usar
 
-1. Baixe o **[G2ProV2.exe](https://github.com/Kozato01/Machenike-G2-Pro-V2-PC/raw/main/G2ProV2.exe)**.
+1. Baixe o **[G2ProV2.exe](https://github.com/Kozato01/Machenike-G2-Pro-V2-PC/releases/latest/download/G2ProV2.exe)**.
 2. Abra. Não precisa instalar.
 3. Ligue o controle (cabo USB, dongle 2.4G ou Bluetooth). A ficha se preenche sozinha.
 
