@@ -242,7 +242,7 @@ EN = {
     "a sequência": "the sequence",
     "Aplicado às {0}: a traseira manda {1}.": "Applied at {0}: the rear button sends {1}.",
     "digita “{0}”": "types “{0}”",
-    "− e + por {0} ms": "− and + for {0} ms",
+    "L1 e R1 por {0} ms": "L1 and R1 for {0} ms",
     "Não entendi: {0}. Use atalhos (Ctrl+C), esperas (100 ms), textos entre aspas (\"gg\") e clique, clique direito "
     "ou clique do meio, separados por vírgula.":
         "Didn't understand: {0}. Use shortcuts (Ctrl+C), waits (100 ms), quoted text (\"gg\") and click, right click "
@@ -259,10 +259,10 @@ EN = {
     "Funciona com o app aberto (pode minimizar). ": "Works while the app is open (it can be minimized). ",
     "Com o controle virtual ligado, o jogo não vê o sinal da traseira.":
         "With the virtual controller on, the game doesn't see the rear button's signal.",
-    "Ligue o Virtual (barra de cima): sem ele, o jogo e o Steam também recebem o − e + da traseira.":
-        "Turn on Virtual (top bar): without it, the game and Steam also get the rear button's − and +.",
-    "Gravando na traseira… Depois é só apertar: o app troca o sinal dela por {0}.":
-        "Saving to the rear button… Then just press it: the app turns its signal into {0}.",
+    "Ligue o Virtual (barra de cima): sem ele, o jogo também recebe o L1 e R1 rápido da traseira.":
+        "Turn on Virtual (top bar): without it, the game also gets the rear button's quick L1 and R1.",
+    "Clique em Aplicar (barra de cima) para gravar na traseira. Depois é só apertar: o app troca o sinal dela por {0}.":
+        "Click Apply (top bar) to save it to the rear button. Then just press it: the app turns its signal into {0}.",
     # ---- check-up
     "Entradas ao vivo, vibração, bateria e calibração.": "Live inputs, vibration, battery and calibration.",
     "Entradas lidas pelo Windows (XInput), já com zona morta e curva aplicadas: é o que os jogos recebem. As "

@@ -574,11 +574,11 @@ class XInput:
 
 
 # ---------------------------------------------------------------- ações no PC (traseiras → teclado)
-# M1–M4 no PC: a macro aperta − e + juntos por um tempo que identifica a M (M1 = 30 ms … M4 = 120 ms); o app mede
-# quanto durou e manda a tecla na hora em que o sinal acaba. O controle não toca L3/R3 em macro (testado) e o
-# direcional junta lados opostos; − e + sim. Com o controle virtual, o jogo e o Steam nunca veem esse sinal.
+# M1–M4 no PC: a macro aperta L1 e R1 juntos por um tempo que identifica a M (M1 = 30 ms … M4 = 120 ms); o app mede
+# quanto durou e manda a tecla na hora em que o sinal acaba. Testado: o controle não toca L3/R3 em macro; − e + vira
+# o botão Guia e abre o Big Picture do Steam. Com o controle virtual, o jogo nunca vê esse sinal.
 PC_PULSES = {"M1": 1, "M2": 2, "M3": 3, "M4": 4}
-PC_BASE = [93, 94]  # − e +
+PC_BASE = [5, 6]  # L1 e R1
 PC_STEP_MS = 30
 
 
@@ -702,7 +702,7 @@ def run_sequence(text):
 
 
 class PcActions:
-    """O que cada M faz no PC (salvo neste PC). Mede quanto durou o − e + juntos: 30/60/90/120 ms = M1…M4. Um dedo
+    """O que cada M faz no PC (salvo neste PC). Mede quanto durou o L1 e R1 juntos: 30/60/90/120 ms = M1…M4. Um dedo
     segura mais que isso e não dispara nada."""
     LONGEST = 0.15  # acima disso é gente apertando, não a macro
 
@@ -755,7 +755,7 @@ VIRTUAL = None  # VirtualPad, criado pela janela
 
 # ---------------------------------------------------------------- controle virtual (ViGEmBus + HidHide)
 HIDHIDE = Path(r"C:\Program Files\Nefarius Software Solutions\HidHide\x64\HidHideCLI.exe")
-SIGNAL = 0x0010 | 0x0020  # bits XInput de + (Start) e − (Back): o sinal das M; o jogo nunca vê os dois juntos
+SIGNAL = 0x0100 | 0x0200  # bits XInput de L1 e R1: o sinal das M; o jogo nunca vê os dois juntos
 
 
 def hidhide(*args):
@@ -770,8 +770,11 @@ def hidhide(*args):
     return r.stdout
 
 
-def strip_signal(buttons):
-    return buttons & ~SIGNAL if buttons & SIGNAL == SIGNAL else buttons
+def strip_signal(buttons, latched=False):
+    """Tira o sinal das M. Desde que L1 e R1 aparecem juntos até os dois soltarem, nenhum dos dois passa: na soltura
+    um sai antes do outro e escaparia sozinho. Devolve (botões para o jogo, ainda dentro do sinal?)."""
+    latched = buttons & SIGNAL == SIGNAL or (latched and bool(buttons & SIGNAL))
+    return (buttons & ~SIGNAL if latched else buttons), latched
 
 
 DRIVERS = {"ViGEmBus": "ViGEmBusSetup_x64.msi", "HidHide": "HidHide_1.5.230_x64.exe"}  # em assets/drivers
@@ -857,12 +860,12 @@ class VirtualPad:
             ctypes.windll.kernel32.SetThreadPriority(ctypes.windll.kernel32.GetCurrentThread(), 15)
         except (AttributeError, OSError):
             pass
-        last = None
+        last, latched = None, False
         while self.running:
             st = _State()
             if self.pad.dll.XInputGetState(self.pad.user, ctypes.byref(st)) == 0 and st.dwPacketNumber != last:
                 last, g, r = st.dwPacketNumber, st.Gamepad, self.vpad.report
-                r.wButtons = strip_signal(g.wButtons)
+                r.wButtons, latched = strip_signal(g.wButtons, latched)
                 r.bLeftTrigger, r.bRightTrigger = g.bLeftTrigger, g.bRightTrigger
                 r.sThumbLX, r.sThumbLY, r.sThumbRX, r.sThumbRY = g.sThumbLX, g.sThumbLY, g.sThumbRX, g.sThumbRY
                 self.vpad.update()
@@ -2769,7 +2772,7 @@ class MacroCell(SetupCell):
             self.pc_note.hide()
             return
         n = PC_PULSES[self.pc_name]
-        combo = tr("− e + por {0} ms").format(PC_STEP_MS * n)
+        combo = tr("L1 e R1 por {0} ms").format(PC_STEP_MS * n)
         steps = [(st.get("keys"), st.get("ms")) for st in ((self.slot(self.store.device) or {}).get("steps") or [])]
         ready = [(st["keys"], st["ms"]) for st in pc_steps(self.pc_name)] == [(k, ms) for k, ms in steps]
         draft = [(st.get("keys"), st.get("ms")) for st in ((self.slot() or {}).get("steps") or [])]
@@ -2800,9 +2803,9 @@ class MacroCell(SetupCell):
             text, color = ((tr("Pronto. No jogo, ligue {0} ao comando que quiser (nenhum teclado tem essa tecla). ").format(value)
                             if kind == "special" else tr("Pronto. ")) + tr("Funciona com o app aberto (pode minimizar). ") + (
                 tr("Com o controle virtual ligado, o jogo não vê o sinal da traseira.") if hidden else
-                tr("Ligue o Virtual (barra de cima): sem ele, o jogo e o Steam também recebem o − e + da traseira."))), C["pencil"]
+                tr("Ligue o Virtual (barra de cima): sem ele, o jogo também recebe o L1 e R1 rápido da traseira."))), C["pencil"]
         else:
-            text, color = (tr("Gravando na traseira… Depois é só apertar: o app troca o sinal dela por {0}.").format(what)), C["orange"]
+            text, color = (tr("Clique em Aplicar (barra de cima) para gravar na traseira. Depois é só apertar: o app troca o sinal dela por {0}.").format(what)), C["orange"]
         self.pc_note.setText(text, color)
         stamps = [t for t in (PC.saved.get(self.pc_name), self.store.saved_at.get("macros")) if t]
         if ready and what and not bad and stamps and "macros" not in self.store.problems:
@@ -3257,11 +3260,6 @@ class Main(QMainWindow):
         else:
             hidhide("--cloak-off")  # garante o real visível se o app caiu com o modo ligado
         PC.watch(self.pad)  # traseiras → teclado
-        self.macro_timer = QTimer(self)  # M1–M4 gravam sozinhas: espera meio segundo sem mudança e grava uma vez
-        self.macro_timer.setSingleShot(True)
-        self.macro_timer.setInterval(600)
-        self.macro_timer.timeout.connect(self._apply_macros)
-        store.changed.connect(lambda: "macros" in store.pending() and self.macro_timer.start())
         self._status("search", tr("Procurando o controle…"))
         self.refresh()
 
@@ -3271,13 +3269,6 @@ class Main(QMainWindow):
         self.link.set_mode(self.pages[i].mode)
         if view:  # ex.: "Macros" da Ficha abre Botões na vista das macros
             self.pages[i].set_view(view)
-
-    def _apply_macros(self):
-        if self.state != "ok":  # ocupado ou desconectado: tenta de novo daqui a pouco
-            self.macro_timer.start()
-            return
-        if "macros" in self.store.pending():
-            self.link.apply([("macros", copy.deepcopy(self.store.draft["macros"]))])
 
     def _set_lang(self, lang):
         """Troca a língua reabrindo o app: Bluetooth e controle virtual recomeçam limpos na língua nova."""
@@ -3399,22 +3390,26 @@ def selftest():
     assert (c["left"]["deadzone"], c["right"]["deadzone"], c["left"]["max"], c["right"]["max"]) == (17, 5, 94, 96)
     assert shortcut_vks("Ctrl+Shift+S") == [0x11, 0x10, 0x53] and shortcut_vks("F5") == [0x74]
     assert shortcut_vks("Alt+Left") == [0x12, 0x25] and shortcut_vks("") is None
-    # duração: − e + por ~90 ms (com atraso do dongle) = M3; segurado pelo dedo (300 ms) não conta
+    # duração: L1 e R1 por ~90 ms (com atraso do dongle) = M3; segurado pelo dedo (300 ms) não conta
     fired, pc = [], PcActions()
     pc.fire = fired.append
-    on, off = {"down": {93, 94}}, {"down": set()}
+    on, off = {"down": {5, 6}}, {"down": set()}
     pc.tick(on, 0.0); pc.tick(off, 0.097)
     pc.tick(on, 1.0); pc.tick(off, 1.3)
     pc.tick(on, 2.0); pc.tick(off, 2.034)
     assert fired == ["M3", "M1"], fired
-    assert pc_steps("M4") == [{"ms": 120, "keys": [93, 94]}]
+    assert pc_steps("M4") == [{"ms": 120, "keys": [5, 6]}]
     steps, bad = sequence_steps('Ctrl+C, 100 ms, espera 50 ms, "gg", clique direito, Ctrl+V, F13, ???')
     assert [k for k, _ in sequence_steps("wait 50 ms, right click, Ctrl+V")[0]] == ["wait", "click", "keys"]
     assert sequence_steps('Ctrl+A, "ok, M3", Enter')[0] == [("keys", "Ctrl+A"), ("text", "ok, M3"), ("keys", "Enter")]
     assert [k for k, _ in steps] == ["keys", "wait", "wait", "text", "click", "keys", "keys"] and bad == ["???"]
     assert shortcut_vks("F13") == [0x7C]
     assert all((ROOT / "assets" / "drivers" / f).exists() for f in DRIVERS.values())  # instaladores no pacote
-    assert strip_signal(0x0010 | 0x0020 | 0x1000) == 0x1000 and strip_signal(0x0020) == 0x0020  # − sozinho passa
+    assert strip_signal(0x0100)[0] == 0x0100  # L1 sozinho (dedo) passa
+    out, lat = strip_signal(0x0300 | 0x1000)
+    assert out == 0x1000 and lat
+    assert strip_signal(0x0100, lat) == (0, True)  # soltura em degrau: o L1 que sobrou não escapa
+    assert strip_signal(0, True) == (0, False)
     for pt, en in i18n.EN.items():  # tradução nunca pede um marcador {n} que a frase original não tem
         assert set(re.findall(r"\{(\d+)", en)) <= set(re.findall(r"\{(\d+)", pt)), pt
     print("selftest ok")
