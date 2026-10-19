@@ -46,9 +46,9 @@ Click **Apply** and press the rear button. The app has to be open for this, but 
 
 **Virtual controller (optional):** the rear button signals a quick tap of L3 + R3, which the game also sees. Turn on
 **Virtual** in the top bar and the game gets a clean virtual Xbox controller instead, with vibration, while the rear
-buttons only send their keys. This needs two free drivers by Nefarius, installed once:
-[ViGEmBus](https://github.com/nefarius/ViGEmBus/releases) and [HidHide](https://github.com/nefarius/HidHide/releases)
-(restart the PC after HidHide).
+buttons only send their keys. It needs two free Windows drivers by Nefarius (ViGEmBus and HidHide). The app
+includes their installers: the first time you turn on **Virtual**, it offers to install them, then you restart the
+PC once.
 
 ## Common questions
 
@@ -105,6 +105,7 @@ python -m PyInstaller --noconfirm --distpath . G2ProV2.spec
 ## Credits
 
 - **Archivo** font by Omnibus-Type (SIL OFL): `assets/fonts/OFL.txt`.
-- **ViGEmBus** and **HidHide** by Nefarius Software Solutions.
+- **ViGEmBus** (BSD-3-Clause) and **HidHide** (MIT) by Nefarius Software Solutions; their installers ship with the
+  app, with the licenses in `assets/drivers/`.
 - KeyLinker and the G2 Pro V2 belong to Machenike. This project is not affiliated with Machenike; the reverse
   engineering was done for interoperability with the controller.

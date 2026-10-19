@@ -305,8 +305,15 @@ EN = {
     "delas. O app precisa ficar aberto (pode minimizar).":
         "Off: games see the real controller. Turn it on so the rear buttons become PC keys without the game seeing "
         "their signal. The app must stay open (it can be minimized).",
-    "Falta o driver do controle virtual (ViGEmBus): {0}": "The virtual controller driver (ViGEmBus) is missing: {0}",
-    "Falta o HidHide (esconde o controle real dos jogos).": "HidHide is missing (it hides the real controller from games).",
+    "Faltam os drivers do controle virtual: {0}.": "The virtual controller drivers are missing: {0}.",
+    "O modo virtual precisa de drivers gratuitos da Nefarius que não estão instalados: {0}.\n\nO app já traz os "
+    "instaladores. O Windows vai pedir permissão de administrador, e depois é preciso reiniciar o PC.":
+        "Virtual mode needs free drivers by Nefarius that are not installed: {0}.\n\nThe app already includes the "
+        "installers. Windows will ask for administrator permission, and then the PC has to be restarted.",
+    "Instalar drivers": "Install drivers",
+    "Agora não": "Not now",
+    "Siga os instaladores que abriram. Depois, reinicie o PC e ligue o Virtual de novo.":
+        "Follow the installers that opened. Then restart the PC and turn Virtual on again.",
     "O Windows não está vendo o controle (XInput): conecte pelo cabo ou dongle.":
         "Windows does not see the controller (XInput): connect it by cable or dongle.",
     "Não consegui criar o controle virtual ({0}: {1}).": "Could not create the virtual controller ({0}: {1}).",

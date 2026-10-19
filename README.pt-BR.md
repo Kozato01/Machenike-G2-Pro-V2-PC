@@ -47,9 +47,9 @@ Clique em **Aplicar** e aperte a traseira. O app precisa estar aberto para isso,
 
 **Controle virtual (opcional):** a traseira sinaliza com um toque rápido de L3 + R3, que o jogo também vê. Ligue o
 **Virtual** na barra de cima e o jogo passa a receber um controle Xbox virtual limpo, com vibração, enquanto as
-traseiras só mandam as teclas. Isso precisa de dois drivers gratuitos da Nefarius, instalados uma vez:
-[ViGEmBus](https://github.com/nefarius/ViGEmBus/releases) e [HidHide](https://github.com/nefarius/HidHide/releases)
-(reinicie o PC depois do HidHide).
+traseiras só mandam as teclas. Isso precisa de dois drivers gratuitos do Windows, da Nefarius (ViGEmBus e
+HidHide). O app traz os instaladores: na primeira vez que você liga o **Virtual**, ele oferece instalar, e depois é
+só reiniciar o PC uma vez.
 
 ## Dúvidas comuns
 
@@ -106,6 +106,7 @@ python -m PyInstaller --noconfirm --distpath . G2ProV2.spec
 ## Créditos
 
 - Fonte **Archivo**, da Omnibus-Type (SIL OFL): `assets/fonts/OFL.txt`.
-- **ViGEmBus** e **HidHide**, da Nefarius Software Solutions.
+- **ViGEmBus** (BSD-3-Clause) e **HidHide** (MIT), da Nefarius Software Solutions; os instaladores vêm com o app,
+  com as licenças em `assets/drivers/`.
 - KeyLinker e o G2 Pro V2 são da Machenike. Este projeto não tem ligação com a Machenike; a engenharia reversa foi
   feita para interoperabilidade com o controle.

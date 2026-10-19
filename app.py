@@ -13,6 +13,7 @@ import html
 import math
 import os
 import re
+import shutil
 import sys
 import threading
 import time
@@ -27,7 +28,7 @@ from PySide6.QtGui import (QBrush, QColor, QFont, QFontDatabase, QIcon, QKeySequ
                            QPainterPathStroker, QPalette, QPen, QPixmap)
 from PySide6.QtSvg import QSvgRenderer
 from PySide6.QtWidgets import (QApplication, QBoxLayout, QButtonGroup, QColorDialog, QComboBox, QFrame, QGridLayout,
-                               QHBoxLayout, QLabel, QLineEdit, QKeySequenceEdit, QMainWindow, QMenu, QProgressBar,
+                               QHBoxLayout, QLabel, QLineEdit, QKeySequenceEdit, QMainWindow, QMenu, QMessageBox, QProgressBar,
                                QPushButton,
                                QSizePolicy,
                                QStackedWidget, QStyle, QStyleOptionComboBox, QToolButton, QVBoxLayout, QWidget)
@@ -767,6 +768,25 @@ def strip_signal(buttons):
     return buttons & ~L3R3 if buttons & L3R3 == L3R3 else buttons
 
 
+DRIVERS = {"ViGEmBus": "ViGEmBusSetup_x64.msi", "HidHide": "HidHide_1.5.230_x64.exe"}  # em assets/drivers
+
+
+def install_drivers(names):
+    """Abre os instaladores dos drivers que faltam, como administrador, um depois do outro. Copia antes para uma
+    pasta fixa: no .exe, a pasta interna some quando o app fecha, e o instalador pode ainda estar rodando."""
+    dest = Path(os.environ.get("TEMP", str(ROOT))) / "G2ProV2-drivers"
+    dest.mkdir(exist_ok=True)
+    steps = []
+    for name in names:
+        f = Path(shutil.copy(ROOT / "assets" / "drivers" / DRIVERS[name], dest))
+        if f.suffix == ".msi":
+            steps.append(f"Start-Process msiexec.exe -Verb RunAs -Wait -ArgumentList '/i \"{f}\" /passive /norestart'")
+        else:
+            steps.append(f"Start-Process '{f}' -Verb RunAs -Wait -ArgumentList '/passive /norestart'")
+    return QProcess.startDetached("powershell.exe", ["-NoProfile", "-WindowStyle", "Hidden", "-Command",
+                                                     "; ".join(steps)])
+
+
 class VirtualPad:
     """Liga: libera este Python no HidHide, esconde o controle real, cria o Xbox 360 virtual e repassa tudo em
     ~500 Hz numa thread. Desliga (ou fecha o app): para o repasse, remove o virtual e mostra o real de novo."""
@@ -775,12 +795,19 @@ class VirtualPad:
         self.pad, self.vpad, self.thread, self.running, self.error = pad, None, None, False, None
         atexit.register(self.stop)  # nunca deixar o controle real escondido com o app fechado
 
-    def available(self):
+    @staticmethod
+    def missing():
+        """Drivers do Windows que faltam para o modo virtual (o app traz os instaladores)."""
+        out = []
         try:
-            import vgamepad  # noqa: F401  (instala o ViGEmBus junto)
-        except Exception as e:
-            return tr("Falta o driver do controle virtual (ViGEmBus): {0}").format(e.__class__.__name__)
-        return None if HIDHIDE.exists() else tr("Falta o HidHide (esconde o controle real dos jogos).")
+            import vgamepad  # noqa: F401  (falha ao importar se o ViGEmBus não está instalado)
+        except Exception:
+            out.append("ViGEmBus")
+        return out + ([] if HIDHIDE.exists() else ["HidHide"])
+
+    def available(self):
+        miss = self.missing()
+        return tr("Faltam os drivers do controle virtual: {0}.").format(", ".join(miss)) if miss else None
 
     def start(self):
         self.error = self.available()
@@ -792,7 +819,13 @@ class VirtualPad:
             return False
         try:
             import vgamepad as vg
-            if hidhide("--app-reg", sys.executable, "--cloak-on") is None:
+            # ponytail: esconde todo controle Xbox 360 ligado (o real aparece assim); um 2º controle também some
+            ids = subprocess.run(["powershell", "-NoProfile", "-Command", "Get-PnpDevice -PresentOnly | Where-Object "
+                                  "InstanceId -match 'VID_045E&PID_028E' | ForEach-Object InstanceId"],
+                                 stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=30,
+                                 creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0)).stdout.split()
+            hide = [arg for i in ids for arg in ("--dev-hide", i)]
+            if hidhide("--app-reg", sys.executable, *hide, "--cloak-on") is None:
                 raise RuntimeError(tr("o HidHide não respondeu"))
             self.pad.pinned = True  # daqui em diante só lê o slot do controle real
             self.vpad = vg.VX360Gamepad()
@@ -2959,6 +2992,19 @@ class CheckupPage(Page):
         self.outer.addLayout(body, 1)
 
     def _virtual(self, on):
+        miss = VIRTUAL.missing() if on else []
+        if miss:  # o app traz os instaladores: oferece instalar em vez de só dar erro
+            box = QMessageBox(QMessageBox.Question, tr("Controle virtual"), tr(
+                "O modo virtual precisa de drivers gratuitos da Nefarius que não estão instalados: {0}.\n\n"
+                "O app já traz os instaladores. O Windows vai pedir permissão de administrador, e depois é "
+                "preciso reiniciar o PC.").format(", ".join(miss)), parent=self.window())
+            go = box.addButton(tr("Instalar drivers"), QMessageBox.AcceptRole)
+            box.addButton(tr("Agora não"), QMessageBox.RejectRole)
+            box.exec()
+            if box.clickedButton() is go and install_drivers(miss):
+                VIRTUAL.error = tr("Siga os instaladores que abriram. Depois, reinicie o PC e ligue o Virtual de novo.")
+            self.window().refresh()
+            return
         VIRTUAL.start() if on else VIRTUAL.stop()
         PC.settings.setValue("virtual/on", "1" if on and VIRTUAL.running else "0")
         self.window().refresh()  # barra de cima, Check-up e textos das traseiras
@@ -3327,6 +3373,7 @@ def selftest():
     assert sequence_steps('Ctrl+A, "ok, M3", Enter')[0] == [("keys", "Ctrl+A"), ("text", "ok, M3"), ("keys", "Enter")]
     assert [k for k, _ in steps] == ["keys", "wait", "wait", "text", "click", "keys", "keys"] and bad == ["???"]
     assert shortcut_vks("F13") == [0x7C]
+    assert all((ROOT / "assets" / "drivers" / f).exists() for f in DRIVERS.values())  # instaladores no pacote
     assert strip_signal(0x0040 | 0x0080 | 0x1000) == 0x1000 and strip_signal(0x0040) == 0x0040  # L3 sozinho passa
     for pt, en in i18n.EN.items():  # tradução nunca pede um marcador {n} que a frase original não tem
         assert set(re.findall(r"\{(\d+)", en)) <= set(re.findall(r"\{(\d+)", pt)), pt
