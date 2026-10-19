@@ -1025,6 +1025,10 @@ class ChoiceField(QComboBox):
         self.setCurrentIndex(-1)
         self.setPlaceholderText("—")
         self.activated.connect(lambda i: self.picked.emit(self.options[i][1]))
+        self.setFocusPolicy(Qt.StrongFocus)
+
+    def wheelEvent(self, e):  # a roda rola a página: trocar a opção sem querer apagava o atalho de uma traseira
+        e.ignore()
 
     def show_state(self, ref, value):
         self.ref = ref
