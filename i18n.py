@@ -21,7 +21,7 @@ EN = {
     "Os jogos veem um controle Xbox que o app alimenta; as traseiras viram teclas do PC sem o jogo ver o sinal delas.":
         "Games see an Xbox controller fed by the app; the rear buttons become PC keys without the game seeing their signal.",
     "Ainda não lido": "Not read yet",
-    "Lido do controle às {0}": "Read from controller at {0}",
+    "Lido às {0}": "Read at {0}",
     "Bateria {0}": "Battery {0}",
     "Bateria —": "Battery —",
     "Bateria": "Battery",
@@ -326,4 +326,10 @@ EN = {
     "baixo-esquerda": "down-left", "esquerda": "left", "cima-esquerda": "up-left",
     # ---- idioma
     "Idioma": "Language",
+    "Modelo do controle": "Controller model",
+    "Ombro {0}": "Shoulder {0}",
+    "Vista de trás, como quando você vira o controle. M1 e M2 são os botões de ombro; M3 e M4, as traseiras. Cada "
+    "macro imita teclas do controle ou vira uma tecla do PC.":
+        "Back view, as when you flip the controller. M1 and M2 are the shoulder buttons; M3 and M4, the rear buttons. "
+        "Each macro mimics controller buttons or becomes a PC key.",
 }

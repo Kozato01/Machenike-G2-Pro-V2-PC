@@ -42,6 +42,10 @@ def _lang():  # G2_LANG força a língua (capturas); senão, a escolha salva no 
 
 
 LANG = _lang()
+# o firmware dos dois se apresenta igual ("G5Pro_V2", 1006:200C): o modelo é escolha do usuário
+MODEL = os.environ.get("G2_MODEL") or QSettings("Controle", "G2ProV2").value("model", "g2")
+MODEL_NAME = {"g2": "G2 Pro V2", "g5": "G5 Pro V2"}.get(MODEL, "G2 Pro V2")
+SHOULDER_M = MODEL == "g5"  # no G5 Pro V2, M1 e M2 são botões de ombro (pegada garra); no G2 não têm botão
 
 
 def tr(text):
@@ -193,6 +197,10 @@ QPushButton#seg[pending="true"] {{ background: #33251C; border-color: {c['orange
 QKeySequenceEdit QLineEdit, QLineEdit#pc {{ background: {c['cell_hi']}; border: 1px solid {c['rule_hi']};
   border-radius: 6px; padding: 4px 10px; color: {c['ink']}; font-size: 15px; min-height: 22px; }}
 QKeySequenceEdit QLineEdit:focus, QLineEdit#pc:focus {{ border-color: {c['blue']}; }}
+QToolButton#model {{ background: transparent; border: 1px solid transparent; border-radius: 8px; color: {c['ink']};
+  padding: 0 6px; }}
+QToolButton#model:hover {{ background: #191C20; border-color: #2E3238; }}
+QToolButton#model::menu-indicator {{ image: none; width: 0; }}
 QToolButton#rail {{ background: transparent; border: 1px solid transparent; border-radius: 10px; color: {c['pencil']};
   padding-top: 6px; }}
 QToolButton#rail:hover {{ background: #191C20; color: {c['ink']}; }}
@@ -1383,7 +1391,7 @@ PARTS = {"stick_l": (170, 130), "stick_r": (340, 200), "dpad": (239, 196), "abxy
          "b": (424, 128), "x": (376, 128), "y": (400, 104), "l1": (160, 52), "l2": (187, 26), "r1": (400, 52),
          "r2": (373, 26), "trig_l": (187, 30), "trig_r": (373, 30), "minus": (252, 110), "plus": (308, 110),
          "light": (280, 150), "motor_l": (66, 300), "motor_r": (494, 300),
-         "m3": (108, 272), "m4": (452, 272)}  # m3/m4: na vista de trás (espelhada)
+         "m3": (108, 272), "m4": (452, 272), "m1": (238, 62), "m2": (322, 62)}  # m1–m4: vista de trás (espelhada)
 CODE_PART = {1: "a", 2: "b", 3: "x", 4: "y", 5: "l1", 7: "l2", 6: "r1", 8: "r2", 11: "stick_l", 12: "stick_r",
              13: "dpad", 14: "dpad", 15: "dpad", 16: "dpad", 93: "minus", 94: "plus"}
 KEY_XY = {1: (400, 152), 2: (424, 128), 3: (376, 128), 4: (400, 104), 5: (160, 52), 7: (187, 24), 6: (400, 52),
@@ -1619,9 +1627,18 @@ class ControllerPlan(QWidget):
             p.setBrush(fill(part) or QColor(C["body"]))
             p.drawPath(stroke.createStroke(curve))
         p.restore()
+        if SHOULDER_M:  # G5 Pro V2: botões de ombro M1/M2 no alto, entre os gatilhos
+            for part in ("m1", "m2"):
+                cx, cy = PARTS[part]
+                p.setPen(pen(C["orange"], 2) if part in on else ink)
+                p.setBrush(fill(part) or QColor(C["body"]))
+                p.drawRoundedRect(QRectF(cx - 15, cy - 6, 30, 12), 6, 6)
         p.setFont(F(13, 700, 85))  # rótulos fora do espelho, para a letra não inverter
-        for text, x, y, part in ((tr("M3"), 108, 212, "m3"), (tr("M4"), 452, 212, "m4"), (tr("L2"), 373, -8, None),
-                                 (tr("R2"), 187, -8, None)):
+        labels = [(tr("M3"), 108, 212, "m3"), (tr("M4"), 452, 212, "m4"), (tr("L2"), 373, -8, None),
+                  (tr("R2"), 187, -8, None)]
+        if SHOULDER_M:
+            labels += [(tr("M1"), 238, 72, "m1"), (tr("M2"), 322, 72, "m2")]
+        for text, x, y, part in labels:
             p.setPen(QColor(C["orange"] if part in on else C["chalk"] if part else C["pencil"]))
             p.drawText(QRectF(x - 30, y, 60, 18), Qt.AlignCenter, text)
         p.setFont(F(12, 700, 75, caps=True, track=1.0))
@@ -2541,7 +2558,9 @@ class PlanPage(Page):
 
 class ButtonsPage(PlanPage):
     FRONT = tr("Escolha o que cada tecla faz. Padrão: o que ela sempre fez. Desativada: não faz nada.")
-    BACK = (tr("Vista de trás, como quando você vira o controle. M3 e M4 são as traseiras; M1 e M2 não têm botão "
+    BACK = (tr("Vista de trás, como quando você vira o controle. M1 e M2 são os botões de ombro; M3 e M4, as "
+               "traseiras. Cada macro imita teclas do controle ou vira uma tecla do PC.") if SHOULDER_M else
+            tr("Vista de trás, como quando você vira o controle. M3 e M4 são as traseiras; M1 e M2 não têm botão "
             "próprio. Cada macro imita teclas do controle ou vira uma tecla do PC."))
 
 
@@ -2577,11 +2596,14 @@ class ButtonsPage(PlanPage):
                         if n not in slots:
                             continue
                         rear = n in ("M3", "M4")
-                        cell = MacroCell(self.store, slots.index(n), tr("Traseira {0}").format(n) if rear else tr("Macro {0}").format(n),
-                                         {"M3": tr("D"), "M4": tr("E")}.get(n, ""), mirror=lay is self.right)
+                        physical = rear or SHOULDER_M
+                        title = (tr("Traseira {0}") if rear else tr("Ombro {0}") if SHOULDER_M else tr("Macro {0}")).format(n)
+                        cell = MacroCell(self.store, slots.index(n), title,
+                                         {"M3": tr("D"), "M4": tr("E"), "M1": tr("D"), "M2": tr("E")}.get(n, "")
+                                         if physical else "", mirror=lay is self.right)
                         lay.addWidget(cell)
                         self.cells.append(cell)
-                        if rear:
+                        if physical:
                             self.paddles.append((cell, n.lower()))
                     lay.addStretch(1)
             else:
@@ -3175,7 +3197,7 @@ class Main(QMainWindow):
     def __init__(self, store, link, pad):
         super().__init__()
         self.store, self.link, self.pad, self.state = store, link, pad, "search"
-        self.setWindowTitle(tr("G2 Pro V2 — Ficha de acerto"))
+        self.setWindowTitle(MODEL_NAME + " — " + tr("Ficha de acerto"))
         self.setWindowIcon(QIcon(render_svg(APP_ICON, 32)))
         self.resize(1440, 900)
         self.setMinimumSize(1320, 880)
@@ -3194,7 +3216,25 @@ class Main(QMainWindow):
         top = QHBoxLayout(bar)
         top.setContentsMargins(28, 0, 28, 0)
         top.setSpacing(12)
-        top.addWidget(label(tr("G2 Pro V2"), F(26, 700, 72, caps=True, track=0.4)))
+        # o nome do modelo é o seletor: clique e escolha (G2 ou G5); não ocupa espaço na barra
+        self.model = QToolButton(objectName="model")
+        self.model.setText(MODEL_NAME)
+        self.model.setFont(F(26, 700, 72, caps=True, track=0.4))
+        self.model.setIcon(QIcon((ROOT / "assets" / "icons" / "chevron.svg").as_posix()))
+        self.model.setIconSize(QSize(14, 14))
+        self.model.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)
+        self.model.setLayoutDirection(Qt.RightToLeft)  # seta depois do nome
+        self.model.setPopupMode(QToolButton.InstantPopup)
+        self.model.setCursor(Qt.PointingHandCursor)
+        self.model.setToolTip(tr("Modelo do controle"))
+        menu = QMenu(self.model)
+        for key, name in (("g2", "G2 Pro V2"), ("g5", "G5 Pro V2")):
+            act = menu.addAction(name)
+            act.setCheckable(True)
+            act.setChecked(key == MODEL)
+            act.triggered.connect(lambda _=False, k=key: self._restart_with("model", k, MODEL))
+        self.model.setMenu(menu)
+        top.addWidget(self.model)
         top.addSpacing(6)
         self.conn = Chip()
         self.battery = Battery()
@@ -3277,10 +3317,13 @@ class Main(QMainWindow):
             self.pages[i].set_view(view)
 
     def _set_lang(self, lang):
-        """Troca a língua reabrindo o app: Bluetooth e controle virtual recomeçam limpos na língua nova."""
-        if lang == LANG:
+        self._restart_with("lang", lang, LANG)
+
+    def _restart_with(self, key, value, current):
+        """Troca língua ou modelo reabrindo o app: Bluetooth e controle virtual recomeçam limpos."""
+        if value == current:
             return
-        QSettings("Controle", "G2ProV2").setValue("lang", lang)
+        QSettings("Controle", "G2ProV2").setValue(key, value)
         args = sys.argv[1:] if getattr(sys, "frozen", False) else sys.argv
         # no .exe, a cópia nova começa do zero; sem isso ela herda a pasta temporária desta, que some ao fechar
         os.environ["PYINSTALLER_RESET_ENVIRONMENT"] = "1"
@@ -3333,7 +3376,7 @@ class Main(QMainWindow):
         for pg in self.pages:
             pg.refresh()
         self.refresh_buttons()
-        self.read_chip.set(tr("Lido do controle às {0}").format(s.read_at) if s.read_at else tr("Ainda não lido"))
+        self.read_chip.set(tr("Lido às {0}").format(s.read_at) if s.read_at else tr("Ainda não lido"))
         if s.ready():
             m = s.device["motor"]["shutdown_min"]
             self.f_addr.setText(tr("{0}  ·  desliga após {1} sem uso").format(s.device.get('address', ''), 'nunca' if m >= kl.NO_SHUTDOWN else f'{m} min'))

@@ -17,6 +17,10 @@ Você precisa de Windows 10 ou 11 com o **Bluetooth ligado**, porque é por ele 
 quando você joga pelo cabo ou pelo dongle. O app está em português ou inglês: use o seletor **PT | EN** na barra de
 cima.
 
+**G2 Pro V2 ou G5 Pro V2:** clique no nome do controle, no canto de cima, e escolha o modelo. Os dois usam o
+mesmo KeyLinker. No G5 Pro V2, a M1 e a M2 são os botões de ombro e aparecem no desenho de trás; no G2, só a M3 e a
+M4 (as traseiras) têm botão. O G5 Pro V2 ainda não foi testado num controle de verdade.
+
 ## O que dá para fazer
 
 | | |

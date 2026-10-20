@@ -16,6 +16,10 @@ lighting, macros, and rear buttons that become PC keys. Unofficial.
 You need Windows 10 or 11 with **Bluetooth turned on**, since that is how the app configures the controller, even
 when you play over cable or dongle. The app is in English or Portuguese: use the **PT | EN** switch in the top bar.
 
+**G2 Pro V2 or G5 Pro V2:** click the controller name at the top left and pick the model. Both use the same
+KeyLinker protocol. On the G5 Pro V2, M1 and M2 are the shoulder buttons and show in the back view; on the G2, only
+M3 and M4 (the rear buttons) have a button. The G5 Pro V2 has not been tested on real hardware yet.
+
 ## What you can do
 
 | | |
