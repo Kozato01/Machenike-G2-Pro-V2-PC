@@ -1387,11 +1387,18 @@ BODY = path_from([(150, 62), ((196, 46), (364, 46), (410, 62)), ((466, 80), (516
 PLATE = path_from([(172, 82), ((220, 68), (340, 68), (388, 82)), ((424, 94), (452, 138), (462, 186)),
                    ((436, 206), (404, 216), (374, 218)), (186, 218), ((156, 216), (124, 206), (98, 186)),
                    ((108, 138), (136, 94), (172, 82))])
+# G5 Pro V2 (fotos de análise): mais largo e anguloso, ombros quebrados, empunhaduras retas
+BODY5 = path_from([(150, 56), ((210, 48), (350, 48), (410, 56)), ((452, 62), (482, 80), (500, 108)),
+                   ((520, 140), (540, 210), (546, 268)), ((552, 322), (530, 356), (494, 352)),
+                   ((462, 348), (440, 318), (420, 292)), ((404, 272), (384, 266), (360, 266)), (200, 266),
+                   ((176, 266), (156, 272), (140, 292)), ((120, 318), (98, 348), (66, 352)),
+                   ((30, 356), (8, 322), (14, 268)), ((20, 210), (40, 140), (60, 108)),
+                   ((78, 80), (108, 62), (150, 56))])
 PARTS = {"stick_l": (170, 130), "stick_r": (340, 200), "dpad": (239, 196), "abxy": (400, 128), "a": (400, 152),
          "b": (424, 128), "x": (376, 128), "y": (400, 104), "l1": (160, 52), "l2": (187, 26), "r1": (400, 52),
          "r2": (373, 26), "trig_l": (187, 30), "trig_r": (373, 30), "minus": (252, 110), "plus": (308, 110),
          "light": (280, 150), "motor_l": (66, 300), "motor_r": (494, 300),
-         "m3": (108, 272), "m4": (452, 272), "m1": (238, 62), "m2": (322, 62)}  # m1–m4: vista de trás (espelhada)
+         "m3": (108, 272), "m4": (452, 272), "m1": (246, 64), "m2": (314, 64)}  # m1–m4: vista de trás (espelhada)
 CODE_PART = {1: "a", 2: "b", 3: "x", 4: "y", 5: "l1", 7: "l2", 6: "r1", 8: "r2", 11: "stick_l", 12: "stick_r",
              13: "dpad", 14: "dpad", 15: "dpad", 16: "dpad", 93: "minus", 94: "plus"}
 KEY_XY = {1: (400, 152), 2: (424, 128), 3: (376, 128), 4: (400, 104), 5: (160, 52), 7: (187, 24), 6: (400, 52),
@@ -1495,17 +1502,21 @@ class ControllerPlan(QWidget):
             p.drawRoundedRect(rect, 12, 12)
             p.setPen(fine)
             p.drawLine(QPointF(rect.left() + 14, rect.top() + 10), QPointF(rect.right() - 14, rect.top() + 10))
+        g5 = MODEL == "g5"
         p.setPen(ink)
         p.setBrush(QColor(C["body"]))
-        p.drawPath(BODY)
+        p.drawPath(BODY5 if g5 else BODY)
         for part, rect in (("l1", QRectF(136, 44, 92, 17)), ("r1", QRectF(332, 44, 92, 17))):
             p.setBrush(fill(part) or QColor(C["body"]))
             p.drawRoundedRect(rect, 8.5, 8.5)
+        if g5:
+            self._paint_g5_shell(p, pen)
         # placa frontal, textura das empunhaduras e motores
         p.setPen(pen(C["pencil"], 1, alpha=0.45))
         p.setBrush(Qt.NoBrush)
-        p.drawPath(PLATE)
-        for sign, x0 in ((1, 36), (-1, 524)):
+        if not g5:
+            p.drawPath(PLATE)
+        for sign, x0 in (() if g5 else ((1, 36), (-1, 524))):
             for i in range(4):
                 grip = QPainterPath()
                 grip.moveTo(x0 + sign * (2 + i * 7), 262 + i * 11)
@@ -1529,6 +1540,15 @@ class ControllerPlan(QWidget):
         # sticks: poço, capa e concavidade
         for part, axis in (("stick_l", "l"), ("stick_r", "r")):
             center = QPointF(*PARTS[part])
+            if g5:  # módulo trocável: anel largo com serrilha
+                p.setPen(fine)
+                p.setBrush(QColor(C["body"]))
+                p.drawEllipse(center, 41, 41)
+                p.setPen(pen(C["pencil"], 1, alpha=0.5))
+                for k in range(28):
+                    a = k * math.tau / 28
+                    p.drawLine(center + QPointF(math.cos(a) * 37, math.sin(a) * 37),
+                               center + QPointF(math.cos(a) * 41, math.sin(a) * 41))
             p.setPen(fine)
             p.setBrush(QColor(C["ground"]))
             p.drawEllipse(center, 35, 35)
@@ -1540,6 +1560,10 @@ class ControllerPlan(QWidget):
             p.setBrush(Qt.NoBrush)
             p.drawEllipse(center + off, 14, 14)
         # direcional com cantos arredondados
+        if g5:  # nicho quadrado do direcional, com setas nos cantos
+            p.setPen(fine)
+            p.setBrush(QColor(C["ground"]))
+            p.drawRoundedRect(QRectF(205, 162, 68, 68), 15, 15)
         h, v = QPainterPath(), QPainterPath()
         h.addRoundedRect(QRectF(205, 185, 68, 22), 6, 6)
         v.addRoundedRect(QRectF(228, 162, 22, 68), 6, 6)
@@ -1563,6 +1587,11 @@ class ControllerPlan(QWidget):
         for part in ("minus", "plus"):
             cx, cy = PARTS[part]
             col = fill(part)
+            p.save()
+            if g5:  # no G5 os dois são cápsulas inclinadas
+                p.translate(cx, cy)
+                p.rotate(-24 if part == "minus" else 24)
+                p.translate(-cx, -cy)
             p.setPen(ink)
             p.setBrush(col or QColor(C["body"]))
             p.drawRoundedRect(QRectF(cx - 10, cy - 6.5, 20, 13), 6.5, 6.5)
@@ -1570,15 +1599,37 @@ class ControllerPlan(QWidget):
             p.drawLine(QPointF(cx - 4, cy), QPointF(cx + 4, cy))
             if part == "plus":
                 p.drawLine(QPointF(cx, cy - 4), QPointF(cx, cy + 4))
-        # Home com o anel na cor da luz
+            p.restore()
         led = self._led()
         col = fill("light")
-        p.setPen(pen(led.name(), 3.2, alpha=led.alphaF()))
-        p.setBrush(Qt.NoBrush)
-        p.drawEllipse(QPointF(*PARTS["light"]), 13, 13)
-        p.setPen(pen(C["orange"], 1.6) if col else fine)
-        p.setBrush(col or QColor(C["ground"]))
-        p.drawEllipse(QPointF(*PARTS["light"]), 9, 9)
+        if g5:  # Home = logo triangular; abaixo, botão pequeno e a coluna de 4 LEDs
+            cx, cy = PARTS["light"]
+            shield = QPainterPath()
+            shield.moveTo(cx - 15, cy - 11)
+            shield.lineTo(cx + 15, cy - 11)
+            shield.lineTo(cx + 11, cy + 1)
+            shield.lineTo(cx, cy + 14)
+            shield.lineTo(cx - 11, cy + 1)
+            shield.closeSubpath()
+            p.setPen(pen(C["orange"], 1.6) if col else ink)
+            p.setBrush(col or QColor(C["body"]))
+            p.drawPath(shield)
+            p.setPen(fine)
+            p.setBrush(Qt.NoBrush)
+            p.drawRoundedRect(QRectF(283, 168, 10, 18), 5, 5)
+            for i in range(4):
+                p.setPen(Qt.NoPen)
+                p.setBrush(QColor(C["blue"] if i == 3 else C["off"]))
+                p.drawEllipse(QPointF(288, 202 + i * 9), 2.2, 2.2)
+            led = None
+        # Home com o anel na cor da luz (G2)
+        if led is not None:
+            p.setPen(pen(led.name(), 3.2, alpha=led.alphaF()))
+            p.setBrush(Qt.NoBrush)
+            p.drawEllipse(QPointF(*PARTS["light"]), 13, 13)
+            p.setPen(pen(C["orange"], 1.6) if col else fine)
+            p.setBrush(col or QColor(C["ground"]))
+            p.drawEllipse(QPointF(*PARTS["light"]), 9, 9)
         if self.live:  # números ao vivo junto das partes
             p.setFont(F(13, 600, 85, tnum=True))
             for v, rect in ((self.live["lt"], QRectF(152, 14, 70, 34)), (self.live["rt"], QRectF(338, 14, 70, 34))):
@@ -1594,6 +1645,21 @@ class ControllerPlan(QWidget):
                            tr("X {0:+d}  Y {1:+d}").format(round(x * 100), round(y * 100)))
 
 
+    def _paint_g5_shell(self, p, pen):
+        """Detalhes da carcaça do G5: faixa no alto, faixas de LED nas empunhaduras e embaixo (na cor da luz)."""
+        p.setPen(pen(C["pencil"], 1, alpha=0.45))
+        p.setBrush(Qt.NoBrush)
+        band = QPainterPath()
+        band.moveTo(118, 86)
+        band.cubicTo(QPointF(200, 74), QPointF(360, 74), QPointF(442, 86))
+        p.drawPath(band)
+        for x, y in ((40, 304), (520, 304), (112, 100), (448, 100)):  # parafusos
+            p.drawEllipse(QPointF(x, y), 3, 3)
+        led = self._led()
+        p.setPen(pen(led.name(), 3.2, alpha=led.alphaF()))
+        for a, b in (((62, 196), (78, 236)), ((498, 196), (482, 236)), ((222, 260), (338, 260))):
+            p.drawLine(QPointF(*a), QPointF(*b))
+
     def _paint_back(self, p, pen, ink, fill, on):
         """Vista de trás, espelhada como quando se vira o controle: L2/R2 trocam de lado e as traseiras aparecem
         inteiras (M3 sob a mão direita, que fica à esquerda no desenho; M4 sob a esquerda: a confirmar)."""
@@ -1605,7 +1671,7 @@ class ControllerPlan(QWidget):
             p.setBrush(fill(part) or QColor(C["body"]))
             p.drawRoundedRect(rect, 12, 12)
         p.setBrush(QColor(C["body"]))
-        p.drawPath(BODY)
+        p.drawPath(BODY5 if MODEL == "g5" else BODY)
         for part, rect in (("l1", QRectF(136, 44, 92, 17)), ("r1", QRectF(332, 44, 92, 17))):
             p.setBrush(fill(part) or QColor(C["body"]))
             p.drawRoundedRect(rect, 8.5, 8.5)
@@ -1637,7 +1703,7 @@ class ControllerPlan(QWidget):
         labels = [(tr("M3"), 108, 212, "m3"), (tr("M4"), 452, 212, "m4"), (tr("L2"), 373, -8, None),
                   (tr("R2"), 187, -8, None)]
         if SHOULDER_M:
-            labels += [(tr("M1"), 238, 72, "m1"), (tr("M2"), 322, 72, "m2")]
+            labels += [(tr("M1"), 246, 74, "m1"), (tr("M2"), 314, 74, "m2")]
         for text, x, y, part in labels:
             p.setPen(QColor(C["orange"] if part in on else C["chalk"] if part else C["pencil"]))
             p.drawText(QRectF(x - 30, y, 60, 18), Qt.AlignCenter, text)
