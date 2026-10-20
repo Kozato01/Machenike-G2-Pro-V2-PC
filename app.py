@@ -2558,10 +2558,10 @@ class PlanPage(Page):
 
 class ButtonsPage(PlanPage):
     FRONT = tr("Escolha o que cada tecla faz. Padrão: o que ela sempre fez. Desativada: não faz nada.")
-    BACK = (tr("Vista de trás, como quando você vira o controle. M1 e M2 são os botões de ombro; M3 e M4, as "
-               "traseiras. Cada macro imita teclas do controle ou vira uma tecla do PC.") if SHOULDER_M else
-            tr("Vista de trás, como quando você vira o controle. M3 e M4 são as traseiras; M1 e M2 não têm botão "
-            "próprio. Cada macro imita teclas do controle ou vira uma tecla do PC."))
+    BACK5 = tr("Vista de trás, como quando você vira o controle. M1 e M2 são os botões de ombro; M3 e M4, as "
+               "traseiras. Cada macro imita teclas do controle ou vira uma tecla do PC.")
+    BACK2 = tr("Vista de trás, como quando você vira o controle. M3 e M4 são as traseiras; M1 e M2 não têm botão "
+               "próprio. Cada macro imita teclas do controle ou vira uma tecla do PC.")
 
 
     def __init__(self, store):
@@ -2575,7 +2575,7 @@ class ButtonsPage(PlanPage):
 
     def set_view(self, view):
         self.view = self.plan.view = "back" if view in ("back", "macros") else "front"
-        self.meta.setText(self.BACK if self.view == "back" else self.FRONT)
+        self.meta.setText((self.BACK5 if SHOULDER_M else self.BACK2) if self.view == "back" else self.FRONT)
         self.refresh()
 
     def refresh(self):
@@ -3228,11 +3228,12 @@ class Main(QMainWindow):
         self.model.setCursor(Qt.PointingHandCursor)
         self.model.setToolTip(tr("Modelo do controle"))
         menu = QMenu(self.model)
+        self.model_acts = {}
         for key, name in (("g2", "G2 Pro V2"), ("g5", "G5 Pro V2")):
-            act = menu.addAction(name)
+            act = self.model_acts[key] = menu.addAction(name)
             act.setCheckable(True)
             act.setChecked(key == MODEL)
-            act.triggered.connect(lambda _=False, k=key: self._restart_with("model", k, MODEL))
+            act.triggered.connect(lambda _=False, k=key: self._set_model(k))
         self.model.setMenu(menu)
         top.addWidget(self.model)
         top.addSpacing(6)
@@ -3315,6 +3316,21 @@ class Main(QMainWindow):
         self.link.set_mode(self.pages[i].mode)
         if view:  # ex.: "Macros" da Ficha abre Botões na vista das macros
             self.pages[i].set_view(view)
+
+    def _set_model(self, key):
+        """Troca o modelo na hora, sem reabrir: só muda o nome, o texto e o desenho de trás."""
+        global MODEL, MODEL_NAME, SHOULDER_M
+        QSettings("Controle", "G2ProV2").setValue("model", key)
+        MODEL, MODEL_NAME = key, {"g2": "G2 Pro V2", "g5": "G5 Pro V2"}[key]
+        SHOULDER_M = key == "g5"
+        for k, act in self.model_acts.items():
+            act.setChecked(k == key)
+        self.model.setText(MODEL_NAME)
+        self.setWindowTitle(MODEL_NAME + " — " + tr("Ficha de acerto"))
+        buttons = self.pages[3]
+        buttons.built = None  # remonta as células (M1/M2 viram "Ombro" no G5)
+        buttons.set_view(buttons.view)
+        self.refresh()
 
     def _set_lang(self, lang):
         self._restart_with("lang", lang, LANG)
