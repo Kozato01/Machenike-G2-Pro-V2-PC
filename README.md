@@ -1,8 +1,8 @@
-# G2 Pro V2 — Setup sheet
+# G2 Pro V2 / G5 Pro V2 — Setup sheet
 
 **English** · [Português](README.pt-BR.md)
 
-Configure your **Machenike G2 Pro V2** controller on Windows, no phone needed. Sticks, triggers, buttons, turbo,
+Configure your **Machenike G2 Pro V2** or **G5 Pro V2** controller on Windows, no phone needed. Sticks, triggers, buttons, turbo,
 lighting, macros, and rear buttons that become PC keys. Unofficial.
 
 ![Setup sheet](docs/img/en/ficha.png)
@@ -16,9 +16,20 @@ lighting, macros, and rear buttons that become PC keys. Unofficial.
 You need Windows 10 or 11 with **Bluetooth turned on**, since that is how the app configures the controller, even
 when you play over cable or dongle. The app is in English or Portuguese: use the **PT | EN** switch in the top bar.
 
-**G2 Pro V2 or G5 Pro V2:** click the controller name at the top left and pick the model. Both use the same
-KeyLinker protocol. On the G5 Pro V2, M1 and M2 are the shoulder buttons and show in the back view; on the G2, only
-M3 and M4 (the rear buttons) have a button. The G5 Pro V2 has not been tested on real hardware yet.
+## G2 Pro V2 or G5 Pro V2
+
+Click the controller name at the top left and pick the model. It switches right away, without closing the app.
+Both use the same KeyLinker protocol, so every screen works on both; the drawing and the extra buttons change:
+
+| | G2 Pro V2 | G5 Pro V2 |
+|---|---|---|
+| Drawing | Rounded body, light ring on Home | Angular body, triangle logo, light strips on the grips |
+| M1 and M2 | No button (spare macros) | Shoulder buttons, on top |
+| M3 and M4 | Rear buttons | Rear buttons |
+
+![Setup sheet on the G5 Pro V2](docs/img/en/g5.png)
+
+The G5 Pro V2 was drawn from photos and has not been tested on real hardware yet.
 
 ## What you can do
 
@@ -46,22 +57,24 @@ In **Buttons › Back**, each macro (M1–M4) can mimic controller buttons or be
 - **Text:** types a text.
 - **Sequence:** a small PC macro, for example `Ctrl+C, 100 ms, Ctrl+V, "gg", Enter, click`.
 
-Changes to M1–M4 are saved to the controller by themselves (no **Apply** needed). Then just press the rear
-button. The app has to be open for this, but it can be minimized.
+Click **Apply** to save it to the controller. Then just press the rear button: the key goes out right away. The
+app has to be open for this, but it can be minimized.
 
 **Using F13–F24 in a game:** open the game's control settings, click the action you want, and press the rear button
 when the game asks for a key. It records F13 (or whichever you picked), and no key on your keyboard is used up. The
 same works for Discord push-to-talk, OBS hotkeys and AutoHotkey.
 
-**How the rear button reaches the PC:** the controller can't send keyboard keys, so the rear button sends − and +
-together for a set time (M1 = 30 ms … M4 = 120 ms). The app measures it and sends the key the moment the signal
-ends. Pressing − and + yourself does nothing, because a finger holds them longer.
+**How the rear button reaches the PC:** the controller can't send keyboard keys, so the rear button sends a 40 ms
+tap of **L1 + R1** with a mark that says which one it is: M3 has none, M4 adds X, M1 adds A, M2 adds B. The app
+recognizes it the moment the signal arrives and sends the key. Your own L1 + R1 doesn't trigger anything: the macro
+presses both at the same instant, while a finger always presses one before the other. (The controller doesn't play
+L3/R3 in a macro, and − with + turns into the Home button, which opens Steam Big Picture; that's why it's L1 + R1.)
 
-**Virtual controller (recommended with rear keys):** without it, the game and Steam also get that quick − and +.
-Turn on **Virtual** in the top bar and the game gets a clean virtual Xbox controller instead, with vibration, while
-the rear buttons only send their keys. It needs two free Windows drivers by Nefarius (ViGEmBus and HidHide). The app
-includes their installers: the first time you turn on **Virtual**, it offers to install them, then you restart the
-PC once.
+**Virtual controller (recommended with rear keys):** without it, the game also gets that quick tap. Turn on
+**Virtual** in the top bar and the game gets a clean virtual Xbox controller instead, with vibration, while the rear
+buttons only send their keys. It needs two free Windows drivers by Nefarius (ViGEmBus and HidHide). The app includes
+their installers: the first time you turn on **Virtual**, it offers to install them, then you restart the PC once.
+If Steam was already open, restart it after turning Virtual on.
 
 ## Common questions
 
@@ -79,10 +92,18 @@ keyboard. The app is what turns the rear button's signal into a key.
 
 **Does the app add input lag?**
 With **Virtual** on, every button goes through the app, which re-sends it in about 2 ms on average. Rear-button keys
-arrive 30–120 ms after the press, depending on the button (M1 is the fastest).
+go out the moment the signal arrives, about 40 ms after the press.
 
 **Can I still use the KeyLinker app?**
 Yes. Just don't keep both connected at the same time.
+
+## Versions
+
+- **v1.1.0:** **G5 Pro V2** support (model picker, its own drawing, M1/M2 as shoulder buttons); rear buttons with a
+  40 ms L1 + R1 signal recognized on press; macro changes only with **Apply**; option lists no longer change with the
+  mouse wheel; "Applied at…" confirmation on every change.
+- **v1.0.0:** first version: setup sheet, sticks with automatic calibration, triggers, buttons, turbo, macros, rear
+  buttons as PC keys, virtual controller, English and Portuguese.
 
 ## Why this exists
 

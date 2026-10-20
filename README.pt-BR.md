@@ -1,8 +1,8 @@
-# G2 Pro V2 — Ficha de acerto
+# G2 Pro V2 / G5 Pro V2 — Ficha de acerto
 
 [English](README.md) · **Português**
 
-Configure o controle **Machenike G2 Pro V2** no Windows, sem precisar do celular. Analógicos, gatilhos, botões,
+Configure os controles **Machenike G2 Pro V2** e **G5 Pro V2** no Windows, sem precisar do celular. Analógicos, gatilhos, botões,
 turbo, luz, macros e traseiras que viram teclas do PC. Não oficial.
 
 ![Ficha de acerto](docs/img/ficha.png)
@@ -17,9 +17,20 @@ Você precisa de Windows 10 ou 11 com o **Bluetooth ligado**, porque é por ele 
 quando você joga pelo cabo ou pelo dongle. O app está em português ou inglês: use o seletor **PT | EN** na barra de
 cima.
 
-**G2 Pro V2 ou G5 Pro V2:** clique no nome do controle, no canto de cima, e escolha o modelo. Os dois usam o
-mesmo KeyLinker. No G5 Pro V2, a M1 e a M2 são os botões de ombro e aparecem no desenho de trás; no G2, só a M3 e a
-M4 (as traseiras) têm botão. O G5 Pro V2 ainda não foi testado num controle de verdade.
+## G2 Pro V2 ou G5 Pro V2
+
+Clique no nome do controle, no canto de cima, e escolha o modelo. A troca é na hora, sem fechar o app. Os dois usam
+o mesmo KeyLinker, então todas as telas funcionam nos dois; muda o desenho do controle e os botões extras:
+
+| | G2 Pro V2 | G5 Pro V2 |
+|---|---|---|
+| Desenho | Corpo arredondado, anel de luz no Home | Corpo anguloso, logo triangular, faixas de luz nas empunhaduras |
+| M1 e M2 | Sem botão (macros soltas) | Botões de ombro, no alto |
+| M3 e M4 | Traseiras | Traseiras |
+
+![Ficha no G5 Pro V2](docs/img/g5.png)
+
+O G5 Pro V2 foi desenhado a partir de fotos e ainda não foi testado num controle de verdade.
 
 ## O que dá para fazer
 
@@ -47,22 +58,24 @@ Em **Botões › Trás**, cada macro (M1–M4) pode imitar teclas do controle ou
 - **Texto:** digita um texto.
 - **Sequência:** uma pequena macro de PC, por exemplo `Ctrl+C, 100 ms, Ctrl+V, "gg", Enter, clique`.
 
-Mudanças em M1–M4 são gravadas no controle sozinhas (sem **Aplicar**). Depois é só apertar a traseira. O app
-precisa estar aberto para isso, mas pode ficar minimizado.
+Clique em **Aplicar** para gravar no controle. Depois é só apertar a traseira: a tecla sai no mesmo instante. O
+app precisa estar aberto para isso, mas pode ficar minimizado.
 
 **Usar F13–F24 num jogo:** abra as configurações de controles do jogo, clique na ação que você quer e aperte a
 traseira quando o jogo pedir a tecla. Ele grava F13 (ou a que você escolheu), e nenhuma tecla do seu teclado fica
 ocupada. Vale também para o falar do Discord, atalhos do OBS e AutoHotkey.
 
-**Como a traseira chega ao PC:** o controle não sabe mandar tecla de teclado, então a traseira manda − e + juntos
-por um tempo certo (M1 = 30 ms … M4 = 120 ms). O app mede e manda a tecla no instante em que o sinal acaba. Apertar
-− e + com o dedo não dispara nada, porque o dedo segura mais tempo.
+**Como a traseira chega ao PC:** o controle não sabe mandar tecla de teclado, então a traseira manda um toque de
+40 ms de **L1 + R1**, com uma marca que diz qual é: M3 sem marca, M4 com X, M1 com A, M2 com B. O app reconhece no
+instante em que o sinal chega e manda a tecla. O seu L1 + R1 com o dedo não dispara nada: a macro aperta os dois no
+mesmo instante, e o dedo sempre aperta um antes do outro. (O controle não toca L3/R3 numa macro, e − com + vira o
+botão Home, que abre o Big Picture do Steam; por isso o sinal é L1 + R1.)
 
-**Controle virtual (recomendado com as traseiras):** sem ele, o jogo e o Steam também recebem esse − e + rápido.
-Ligue o **Virtual** na barra de cima e o jogo passa a receber um controle Xbox virtual limpo, com vibração, enquanto
-as traseiras só mandam as teclas. Isso precisa de dois drivers gratuitos do Windows, da Nefarius (ViGEmBus e
+**Controle virtual (recomendado com as traseiras):** sem ele, o jogo também recebe esse toque rápido. Ligue o
+**Virtual** na barra de cima e o jogo passa a receber um controle Xbox virtual limpo, com vibração, enquanto as
+traseiras só mandam as teclas. Isso precisa de dois drivers gratuitos do Windows, da Nefarius (ViGEmBus e
 HidHide). O app traz os instaladores: na primeira vez que você liga o **Virtual**, ele oferece instalar, e depois é
-só reiniciar o PC uma vez.
+só reiniciar o PC uma vez. Se o Steam já estava aberto, reinicie-o depois de ligar o Virtual.
 
 ## Dúvidas comuns
 
@@ -80,10 +93,18 @@ app que transforma o sinal da traseira em tecla.
 
 **O app deixa os botões mais lentos?**
 Com o **Virtual** ligado, cada botão passa pelo app, que repassa em cerca de 2 ms, em média. As teclas das
-traseiras chegam de 30 a 120 ms depois do aperto, conforme a traseira (a M1 é a mais rápida).
+traseiras saem no instante em que o sinal chega, cerca de 40 ms depois do aperto.
 
 **Ainda posso usar o KeyLinker?**
 Sim. Só não deixe os dois conectados ao mesmo tempo.
+
+## Versões
+
+- **v1.1.0:** suporte ao **G5 Pro V2** (escolha de modelo, desenho próprio, M1/M2 como botões de ombro); traseiras
+  com sinal L1 + R1 de 40 ms reconhecido no aperto; mudanças nas macros só com **Aplicar**; listas que não mudam com
+  a roda do mouse; confirmação "Aplicado às…" a cada mudança.
+- **v1.0.0:** primeira versão: ficha, analógicos com calibragem automática, gatilhos, botões, turbo, macros,
+  traseiras como teclas do PC, controle virtual, português e inglês.
 
 ## Por que este app existe
 
